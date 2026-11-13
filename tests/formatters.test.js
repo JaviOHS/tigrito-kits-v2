@@ -5,9 +5,11 @@ import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
   formatGarment,
+  formatKitPrice,
   formatNotificationDate,
   formatPrice,
   formatVariant,
+  resolveKitPrice,
 } from '../src/core/formatters.js'
 
 test('formats catalog variants and garments for display', () => {
@@ -30,6 +32,27 @@ test('formats store prices with the configured currency', () => {
   assert.equal(formatPrice(null, 'USD'), '')
   assert.equal(formatPrice('', 'USD'), '')
   assert.equal(formatPrice('not-a-number', 'USD'), '')
+})
+
+test('resolves prices per garment with base price fallback', () => {
+  const store = {
+    basePrice: 25,
+    prices: { CAMISETA: 25, IMPERMEABLE: 30 },
+    currency: 'USD',
+  }
+
+  assert.equal(resolveKitPrice({ garment: 'CAMISETA' }, store), 25)
+  assert.equal(resolveKitPrice({ garment: 'IMPERMEABLE' }, store), 30)
+  assert.equal(resolveKitPrice({ garment: 'BUZO' }, store), 25)
+  assert.equal(resolveKitPrice({ garment: 'IMPERMEABLE' }, {}), null)
+  assert.equal(
+    resolveKitPrice({ garment: 'CAMISETA' }, { defaultPrice: 20 }),
+    20,
+  )
+
+  assert.equal(formatKitPrice({ garment: 'CAMISETA' }, store), '$25')
+  assert.equal(formatKitPrice({ garment: 'IMPERMEABLE' }, store), '$30')
+  assert.equal(formatKitPrice({ garment: 'BUZO' }, store), '$25')
 })
 
 test('builds encoded WhatsApp URLs and rejects missing numbers', () => {
@@ -61,6 +84,13 @@ test('builds one consistent WhatsApp order message for cards and modals', () => 
   assert.equal(
     buildKitOrderMessage(kit, store),
     'Hola Tigrito KitLab\n\nQuiero pedir: Barcelona SC, temporada 2025, 100 años, Camiseta.\n\nPrecio: $35.',
+  )
+  assert.equal(
+    buildKitOrderMessage(
+      { ...kit, garment: 'IMPERMEABLE' },
+      { ...store, prices: { IMPERMEABLE: 30 } },
+    ),
+    'Hola Tigrito KitLab\n\nQuiero pedir: Barcelona SC, temporada 2025, 100 años, Impermeable.\n\nPrecio: $30.',
   )
   assert.equal(
     buildKitOrderMessage(kit, {}),

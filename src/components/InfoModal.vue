@@ -2,7 +2,11 @@
 import { computed } from 'vue'
 
 import { resolveIcon } from '../config/icons.registry.js'
-import { buildWhatsAppUrl, formatPrice } from '../core/formatters.js'
+import {
+  buildWhatsAppUrl,
+  formatGarment,
+  formatPrice,
+} from '../core/formatters.js'
 import ModalShell from './ModalShell.vue'
 
 const props = defineProps({
@@ -35,9 +39,31 @@ function normalizeList(value) {
 }
 
 const storeData = computed(() => props.store ?? {})
-const priceLabel = computed(() =>
-  formatPrice(storeData.value.basePrice, storeData.value.currency),
-)
+const priceItems = computed(() => {
+  const store = storeData.value
+  const prices = store.prices
+
+  if (prices && typeof prices === 'object' && !Array.isArray(prices)) {
+    const entries = Object.entries(prices)
+      .map(([garment, value]) => ({
+        id: garment,
+        label: formatGarment(garment),
+        value: formatPrice(value, store.currency),
+      }))
+      .filter((item) => item.value)
+
+    if (entries.length) return entries
+  }
+
+  const basePrice = formatPrice(
+    store.basePrice ?? store.defaultPrice,
+    store.currency,
+  )
+
+  return basePrice
+    ? [{ id: 'base', label: 'Precio base', value: basePrice }]
+    : []
+})
 const deliveryCity = computed(() => storeData.value.deliveryCity ?? '')
 const whatsappUrl = computed(() =>
   buildWhatsAppUrl(
@@ -102,7 +128,7 @@ const sections = computed(() => {
 })
 
 const showSummary = computed(
-  () => Boolean(priceLabel.value || deliveryCity.value),
+  () => Boolean(priceItems.value.length || deliveryCity.value),
 )
 const showEmptyState = computed(
   () => !showSummary.value && !sections.value.length && !whatsappUrl.value,
@@ -122,17 +148,26 @@ const showEmptyState = computed(
         v-if="showSummary"
         class="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-subtle bg-base px-4 py-3.5 sm:px-5"
       >
-        <div v-if="priceLabel">
+        <div v-if="priceItems.length">
           <p
             class="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-muted"
           >
-            Precio base
+            Precios
           </p>
-          <p
-            class="mt-0.5 font-display text-xl font-semibold tabular-nums text-main"
-          >
-            {{ priceLabel }}
-          </p>
+          <ul class="mt-1 space-y-0.5">
+            <li
+              v-for="item in priceItems"
+              :key="item.id"
+              class="flex items-baseline gap-2"
+            >
+              <span class="text-xs text-muted">{{ item.label }}</span>
+              <span
+                class="font-display text-lg font-semibold tabular-nums text-main"
+              >
+                {{ item.value }}
+              </span>
+            </li>
+          </ul>
         </div>
 
         <p

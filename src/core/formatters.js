@@ -65,6 +65,33 @@ export function formatPrice(value, currency = 'USD', locale = 'es-EC') {
   }
 }
 
+/**
+ * Resolve the price of a specific kit. `store.prices` maps garment codes to
+ * amounts; `basePrice` (or the legacy `defaultPrice`) is the fallback.
+ */
+export function resolveKitPrice(kit, store = {}) {
+  const garment = String(kit?.garment ?? '').trim().toUpperCase()
+  const prices = store?.prices
+  const garmentPrice =
+    garment && prices && typeof prices === 'object' && !Array.isArray(prices)
+      ? prices[garment]
+      : undefined
+
+  const value = garmentPrice ?? store?.basePrice ?? store?.defaultPrice
+  if (value === null || value === undefined || value === '') return null
+
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount : null
+}
+
+export function formatKitPrice(kit, store = {}, locale = 'es-EC') {
+  return formatPrice(
+    resolveKitPrice(kit, store),
+    store?.currency,
+    locale,
+  )
+}
+
 export function buildWhatsAppUrl(number, message = '') {
   const digits = String(number ?? '').replace(/\D/g, '')
   if (!digits) return ''
@@ -90,7 +117,7 @@ export function buildKitOrderMessage(kit, store = {}) {
     .filter(Boolean)
     .join(', ')
 
-  const priceLabel = formatPrice(store.basePrice, store.currency)
+  const priceLabel = formatKitPrice(kit, store)
 
   return [
     store.whatsappGreeting,

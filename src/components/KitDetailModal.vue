@@ -6,7 +6,7 @@ import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
   formatGarment,
-  formatPrice,
+  formatKitPrice,
   formatVariant,
 } from '../core/formatters.js'
 import ModalShell from './ModalShell.vue'
@@ -57,9 +57,7 @@ const subtitle = computed(() =>
         .join(' · ')
     : '',
 )
-const priceLabel = computed(() =>
-  formatPrice(props.store?.basePrice, props.store?.currency),
-)
+const priceLabel = computed(() => formatKitPrice(props.kit, props.store))
 const imageAlt = computed(() =>
   props.kit
     ? `${props.kit.team}, ${props.kit.season}, ${variantLabel.value}, ${garmentLabel.value}`

@@ -6,7 +6,7 @@ import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
   formatGarment,
-  formatPrice,
+  formatKitPrice,
   formatVariant,
 } from '../core/formatters.js'
 
@@ -31,9 +31,7 @@ const garmentLabel = computed(() => formatGarment(props.kit?.garment))
 const showGarmentBadge = computed(
   () => Boolean(props.kit?.garment) && props.kit.garment !== 'CAMISETA',
 )
-const priceLabel = computed(() =>
-  formatPrice(props.store?.basePrice, props.store?.currency),
-)
+const priceLabel = computed(() => formatKitPrice(props.kit, props.store))
 const seasonBadgeClass = computed(() =>
   props.kit?.isRetro
     ? 'border-accent bg-accent text-accent-contrast'

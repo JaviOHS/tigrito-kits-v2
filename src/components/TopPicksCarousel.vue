@@ -57,7 +57,7 @@ function orderUrl(kit) {
         >
           Destacados
         </h2>
-        <p class="mt-1 text-sm text-muted">Las camisetas que más nos piden.</p>
+        <p class="mt-1 text-sm text-muted">Las prendas que más nos piden.</p>
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
