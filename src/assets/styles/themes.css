@@ -1,0 +1,75 @@
+/**
+ * Semantic theme tokens for Tigrito KitLab.
+ *
+ * Components consume these tokens through Tailwind utilities (bg-base,
+ * bg-surface, text-main, border-subtle, ...) or CSS custom properties.
+ * Never reference a raw palette value from a component.
+ */
+
+:root,
+[data-theme="paper-light"] {
+  color-scheme: light;
+
+  --bg-base: #F6F5F2;
+  --bg-surface: #FFFFFF;
+  --bg-glass: rgba(246, 245, 242, 0.85);
+  --bg-scrim: rgba(28, 30, 34, 0.55);
+  --border-subtle: #E5E2DC;
+  --accent-primary: #E08A3C;
+  --accent-dark: #2C323B;
+  --accent-contrast: #1C1E22;
+  --text-main: #1C1E22;
+  --text-muted: #5C626D;
+
+  --elevation-soft: 0 1px 2px rgba(28, 30, 34, 0.04),
+    0 10px 30px rgba(28, 30, 34, 0.06);
+  --elevation-lifted: 0 20px 50px rgba(28, 30, 34, 0.12);
+}
+
+[data-theme="slate-dark"] {
+  color-scheme: dark;
+
+  --bg-base: #14171C;
+  --bg-surface: #1E232B;
+  --bg-glass: rgba(20, 23, 28, 0.85);
+  --bg-scrim: rgba(0, 0, 0, 0.72);
+  --border-subtle: #2E3540;
+  --accent-primary: #F09A49;
+  --accent-dark: #F4F3EF;
+  --accent-contrast: #14171C;
+  --text-main: #F4F3EF;
+  --text-muted: #9CA3AF;
+
+  --elevation-soft: 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 32px rgba(0, 0, 0, 0.24);
+  --elevation-lifted: 0 22px 55px rgba(0, 0, 0, 0.4);
+}
+
+/**
+ * Typography tokens. The matching Google Fonts stylesheet is loaded in
+ * index.html; display type is reserved for headings, brand and team names.
+ */
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+}
+
+/**
+ * Expose the semantic tokens as Tailwind v4 theme values so utilities keep
+ * working when the active theme changes at runtime.
+ */
+@theme inline {
+  --color-base: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-glass: var(--bg-glass);
+  --color-scrim: var(--bg-scrim);
+  --color-subtle: var(--border-subtle);
+  --color-accent: var(--accent-primary);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-main: var(--text-main);
+  --color-muted: var(--text-muted);
+
+  --shadow-soft: var(--elevation-soft);
+  --shadow-lifted: var(--elevation-lifted);
+}

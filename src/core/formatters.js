@@ -1,0 +1,124 @@
+const VARIANT_LABELS = Object.freeze({
+  LOCAL: 'Local',
+  VISITA: 'Visita',
+  TERCERA: 'Tercera',
+  '100-ANOS-1': '100 años',
+  'ED-LIMITADA': 'Edición limitada',
+})
+
+const GARMENT_LABELS = Object.freeze({
+  CAMISETA: 'Camiseta',
+  BUZO: 'Buzo',
+  CONJUNTO: 'Conjunto',
+  IMPERMEABLE: 'Impermeable',
+  PANTALONETA: 'Pantaloneta',
+  POLO: 'Polo',
+})
+
+const WORD_REPLACEMENTS = Object.freeze({
+  ANOS: 'años',
+})
+
+function titleWord(word) {
+  const lower = word.toLowerCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+function humanizeToken(value, knownLabels) {
+  const token = String(value ?? '').trim().toUpperCase()
+  if (!token) return ''
+
+  if (knownLabels[token]) return knownLabels[token]
+
+  return token
+    .split('-')
+    .filter(Boolean)
+    .map((part) => WORD_REPLACEMENTS[part] ?? titleWord(part))
+    .join(' ')
+}
+
+export function formatVariant(variant) {
+  return humanizeToken(variant, VARIANT_LABELS)
+}
+
+export function formatGarment(garment) {
+  return humanizeToken(garment, GARMENT_LABELS)
+}
+
+export function formatPrice(value, currency = 'USD', locale = 'es-EC') {
+  if (value === null || value === undefined || value === '') return ''
+
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return ''
+
+  const currencyCode = String(currency || 'USD').toUpperCase()
+
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  } catch {
+    return `${currencyCode} ${amount}`
+  }
+}
+
+export function buildWhatsAppUrl(number, message = '') {
+  const digits = String(number ?? '').replace(/\D/g, '')
+  if (!digits) return ''
+
+  const query = message ? `?text=${encodeURIComponent(message)}` : ''
+
+  return `https://wa.me/${digits}${query}`
+}
+
+/**
+ * Build the order message once so every entry point (cards and detail modal)
+ * sends the same product context to WhatsApp.
+ */
+export function buildKitOrderMessage(kit, store = {}) {
+  if (!kit) return ''
+
+  const details = [
+    kit.team,
+    kit.season ? `temporada ${kit.season}` : '',
+    formatVariant(kit.variant),
+    formatGarment(kit.garment),
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const priceLabel = formatPrice(store.basePrice, store.currency)
+
+  return [
+    store.whatsappGreeting,
+    details ? `Quiero pedir: ${details}.` : '',
+    priceLabel ? `Precio: ${priceLabel}.` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/**
+ * Format ISO config dates without letting the local timezone move them back a
+ * day (config dates are calendar dates, not timestamps).
+ */
+export function formatNotificationDate(value, locale = 'es-EC') {
+  if (value === null || value === undefined || value === '') return ''
+
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date)
+  } catch {
+    return ''
+  }
+}

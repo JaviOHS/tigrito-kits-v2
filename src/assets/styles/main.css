@@ -1,0 +1,62 @@
+@import "tailwindcss";
+@import "./themes.css";
+
+/* Tailwind's dark: variant follows the active data-theme, not the OS alone. */
+@custom-variant dark (&:where([data-theme="slate-dark"], [data-theme="slate-dark"] *));
+
+@layer base {
+  html {
+    min-width: 320px;
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+  }
+
+  #app {
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background-color: var(--accent-primary);
+    color: var(--accent-contrast);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    body {
+      transition:
+        background-color 240ms ease,
+        color 240ms ease;
+    }
+  }
+}
+
+@layer components {
+  /* Neutral mounting stage keeps horizontal and vertical kit shots uniform. */
+  .kit-stage {
+    background-color: var(--bg-base);
+    background-image: radial-gradient(
+      ellipse at 50% 36%,
+      var(--bg-surface) 0%,
+      var(--bg-base) 82%
+    );
+  }
+}
