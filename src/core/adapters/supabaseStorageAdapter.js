@@ -1,13 +1,10 @@
 import { parseCatalogFilename } from '../catalogParser.js'
 import { FALLBACK_CATALOG, FALLBACK_CONFIGS } from '../mocks/fallbackData.js'
+import { CONFIG_FILES, DEFAULT_BUCKET } from '../storageConfig.js'
 
-export const DEFAULT_BUCKET = 'tigrito-assets'
+export { CONFIG_FILES, DEFAULT_BUCKET }
+
 export const CATALOG_PREFIX = 'catalog/'
-export const CONFIG_FILES = Object.freeze([
-  'store.json',
-  'notifications.json',
-  'top-picks.json',
-])
 
 const CONFIG_FILE_SET = new Set(CONFIG_FILES)
 const LIST_LIMIT = 1000

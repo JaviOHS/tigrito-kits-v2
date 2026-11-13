@@ -20,6 +20,10 @@
   --accent-contrast: #1C1E22;
   --text-main: #1C1E22;
   --text-muted: #5C626D;
+  --feedback-success: #1F7A4D;
+  --feedback-success-soft: rgba(31, 122, 77, 0.1);
+  --feedback-danger: #B42318;
+  --feedback-danger-soft: rgba(180, 35, 24, 0.1);
 
   --elevation-soft: 0 1px 2px rgba(28, 30, 34, 0.04),
     0 10px 30px rgba(28, 30, 34, 0.06);
@@ -39,6 +43,10 @@
   --accent-contrast: #14171C;
   --text-main: #F4F3EF;
   --text-muted: #9CA3AF;
+  --feedback-success: #74D99F;
+  --feedback-success-soft: rgba(116, 217, 159, 0.14);
+  --feedback-danger: #FF9B8F;
+  --feedback-danger-soft: rgba(255, 155, 143, 0.14);
 
   --elevation-soft: 0 1px 2px rgba(0, 0, 0, 0.3),
     0 12px 32px rgba(0, 0, 0, 0.24);
@@ -69,6 +77,10 @@
   --color-accent-contrast: var(--accent-contrast);
   --color-main: var(--text-main);
   --color-muted: var(--text-muted);
+  --color-success: var(--feedback-success);
+  --color-success-soft: var(--feedback-success-soft);
+  --color-danger: var(--feedback-danger);
+  --color-danger-soft: var(--feedback-danger-soft);
 
   --shadow-soft: var(--elevation-soft);
   --shadow-lifted: var(--elevation-lifted);

@@ -66,6 +66,28 @@ export function formatPrice(value, currency = 'USD', locale = 'es-EC') {
 }
 
 /**
+ * Format a byte count for the admin image preview using Spanish decimal
+ * notation. Keeps one decimal only for values below 10 in the chosen unit.
+ */
+export function formatFileSize(bytes) {
+  const value = Number(bytes)
+  if (!Number.isFinite(value) || value < 0) return ''
+  if (value < 1024) return `${Math.round(value)} B`
+
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let size = value / 1024
+  let unitIndex = 0
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex += 1
+  }
+
+  const rounded = size >= 10 ? Math.round(size) : Math.round(size * 10) / 10
+  return `${String(rounded).replace('.', ',')} ${units[unitIndex]}`
+}
+
+/**
  * Resolve the price of a specific kit. `store.prices` maps garment codes to
  * amounts; `basePrice` (or the legacy `defaultPrice`) is the fallback.
  */

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
+  formatFileSize,
   formatGarment,
   formatKitPrice,
   formatNotificationDate,
@@ -97,6 +98,22 @@ test('builds one consistent WhatsApp order message for cards and modals', () => 
     'Quiero pedir: Barcelona SC, temporada 2025, 100 años, Camiseta.',
   )
   assert.equal(buildKitOrderMessage(null, store), '')
+})
+
+test('formats byte counts for the admin image preview', () => {
+  assert.equal(formatFileSize(0), '0 B')
+  assert.equal(formatFileSize(512), '512 B')
+  assert.equal(formatFileSize(1023), '1023 B')
+  assert.equal(formatFileSize(1024), '1 KB')
+  assert.equal(formatFileSize(1200), '1,2 KB')
+  assert.equal(formatFileSize(1536), '1,5 KB')
+  assert.equal(formatFileSize(10240), '10 KB')
+  assert.equal(formatFileSize(1048576), '1 MB')
+  assert.equal(formatFileSize(310632), '303 KB')
+  assert.equal(formatFileSize(4666071), '4,4 MB')
+  assert.equal(formatFileSize(-1), '')
+  assert.equal(formatFileSize('not-a-number'), '')
+  assert.equal(formatFileSize(Number.POSITIVE_INFINITY), '')
 })
 
 test('formats notification calendar dates without timezone drift', () => {

@@ -1,5 +1,11 @@
 <script setup>
-import { computed, ref } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+} from 'vue'
 
 import AppHeader from './components/AppHeader.vue'
 import FilterBar from './components/FilterBar.vue'
@@ -16,6 +22,11 @@ import {
 } from './config/filters.config.js'
 import { resolveIcon } from './config/icons.registry.js'
 import { useCatalog } from './composables/useCatalog.js'
+
+// The admin panel and the Supabase SDK stay in a separate chunk until opened.
+const AdminPanel = defineAsyncComponent(() =>
+  import('./components/admin/AdminPanel.vue'),
+)
 
 const {
   allKits,
@@ -42,6 +53,9 @@ const storeData = computed(() => storeConfig.value ?? {})
 
 const activeModal = ref(null)
 const selectedKit = ref(null)
+const isAdminOpen = ref(
+  typeof window !== 'undefined' && window.location.hash === '#admin',
+)
 
 function openModal(name) {
   if (name !== 'notifications' && name !== 'info') return
@@ -58,6 +72,58 @@ function openKitDetail(kit) {
 function closeModal() {
   activeModal.value = null
 }
+
+function openAdmin() {
+  activeModal.value = null
+  selectedKit.value = null
+  isAdminOpen.value = true
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hash !== '#admin'
+  ) {
+    window.location.hash = 'admin'
+  }
+}
+
+function closeAdmin() {
+  isAdminOpen.value = false
+
+  if (typeof window !== 'undefined' && window.location.hash === '#admin') {
+    const { pathname, search } = window.location
+    window.history.replaceState(null, '', `${pathname}${search}`)
+  }
+}
+
+function syncAdminFromHash() {
+  if (typeof window === 'undefined') return
+
+  if (window.location.hash === '#admin') {
+    if (!isAdminOpen.value) {
+      activeModal.value = null
+      selectedKit.value = null
+      isAdminOpen.value = true
+    }
+    return
+  }
+
+  if (isAdminOpen.value) isAdminOpen.value = false
+}
+
+async function handleAdminRefresh() {
+  selectedKit.value = null
+  activeModal.value = null
+  await loadCatalog()
+}
+
+onMounted(() => {
+  syncAdminFromHash()
+  window.addEventListener('hashchange', syncAdminFromHash)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', syncAdminFromHash)
+})
 
 function navigateKit(direction) {
   const kits = visibleKits.value
@@ -94,6 +160,7 @@ const ErrorIcon = resolveIcon('CircleAlert')
 const EmptyIcon = resolveIcon('PackageOpen')
 const RetryIcon = resolveIcon('RefreshCw')
 const LoadMoreIcon = resolveIcon('ChevronDown')
+const AdminIcon = resolveIcon('Lock')
 </script>
 
 <template>
@@ -311,6 +378,16 @@ const LoadMoreIcon = resolveIcon('ChevronDown')
             Entrega local en {{ storeData.deliveryCity }}.
           </p>
         </div>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface hover:text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:self-auto"
+          @click="openAdmin()"
+        >
+          <component :is="AdminIcon" :size="13" aria-hidden="true" />
+          Acceso al taller
+        </button>
+
         <!-- <p v-if="storeData.currency" class="text-xs text-muted">
           Precios en {{ storeData.currency }}.
         </p> -->
@@ -339,5 +416,33 @@ const LoadMoreIcon = resolveIcon('ChevronDown')
       :store="storeData"
       @close="closeModal"
     />
+
+    <Suspense>
+      <AdminPanel
+        v-if="isAdminOpen"
+        :open="isAdminOpen"
+        :kits="allKits"
+        @close="closeAdmin"
+        @refresh="handleAdminRefresh"
+      />
+
+      <template #fallback>
+        <div
+          class="fixed inset-0 z-50 grid place-items-center bg-scrim p-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            class="flex items-center gap-3 rounded-2xl border border-subtle bg-surface px-5 py-4 text-sm font-medium text-main shadow-lifted"
+          >
+            <span
+              class="size-4 animate-spin rounded-full border-2 border-subtle border-t-accent motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            Abriendo el taller…
+          </div>
+        </div>
+      </template>
+    </Suspense>
   </div>
 </template>
