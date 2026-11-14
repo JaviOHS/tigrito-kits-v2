@@ -13,6 +13,7 @@ const GARMENT_LABELS = Object.freeze({
   IMPERMEABLE: 'Impermeable',
   PANTALONETA: 'Pantaloneta',
   POLO: 'Polo',
+  JOGGER: 'Jogger',
 })
 
 const WORD_REPLACEMENTS = Object.freeze({
@@ -87,9 +88,82 @@ export function formatFileSize(bytes) {
   return `${String(rounded).replace('.', ',')} ${units[unitIndex]}`
 }
 
+function normalizeMatchValue(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function baseFilename(value) {
+  const normalized = normalizeMatchValue(value)
+  return normalized.split(/[\\/]/).pop() ?? ''
+}
+
+function toAmount(value) {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string' && value.trim() === '') return null
+
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount : null
+}
+
+function getOverrideAmount(override) {
+  // `price` is canonical; the aliases keep hand-edited configs forgiving.
+  for (const key of ['price', 'currentPrice', 'amount']) {
+    const amount = toAmount(override?.[key])
+    if (amount !== null) return amount
+  }
+
+  return null
+}
+
 /**
- * Resolve the price of a specific kit. `store.prices` maps garment codes to
- * amounts; `basePrice` (or the legacy `defaultPrice`) is the fallback.
+ * Score an override against a kit. Optional matchers are compared
+ * case-insensitively; at least one matcher must be present. Returns -1 when
+ * the override does not apply, otherwise the number of matched fields.
+ */
+function scoreOverride(kit, override) {
+  if (!override || typeof override !== 'object') return -1
+
+  let score = 0
+
+  if (normalizeMatchValue(override.filename)) {
+    if (
+      !baseFilename(kit?.filename) ||
+      baseFilename(kit.filename) !== baseFilename(override.filename)
+    ) {
+      return -1
+    }
+    score += 1
+  }
+
+  if (normalizeMatchValue(override.team)) {
+    if (
+      normalizeMatchValue(kit?.team) !== normalizeMatchValue(override.team)
+    ) {
+      return -1
+    }
+    score += 1
+  }
+
+  if (normalizeMatchValue(override.garment)) {
+    if (
+      normalizeMatchValue(kit?.garment) !==
+      normalizeMatchValue(override.garment)
+    ) {
+      return -1
+    }
+    score += 1
+  }
+
+  return score
+}
+
+/**
+ * Resolve the standard and effective prices for a kit.
+ *
+ * `store.prices` maps garment codes to amounts, then `defaultPrice` and
+ * `basePrice` are fallbacks. Optional `store.overrides` entries may match any
+ * combination of `filename`, `team`, and `garment`; the most specific match
+ * wins, with later entries winning ties.
  */
 export function resolveKitPrice(kit, store = {}) {
   const garment = String(kit?.garment ?? '').trim().toUpperCase()
@@ -99,19 +173,54 @@ export function resolveKitPrice(kit, store = {}) {
       ? prices[garment]
       : undefined
 
-  const value = garmentPrice ?? store?.basePrice ?? store?.defaultPrice
-  if (value === null || value === undefined || value === '') return null
+  const standardPrice = toAmount(
+    garmentPrice ?? store?.defaultPrice ?? store?.basePrice,
+  )
 
-  const amount = Number(value)
-  return Number.isFinite(amount) ? amount : null
+  const overrides = Array.isArray(store?.overrides) ? store.overrides : []
+  let bestMatch = null
+
+  for (const override of overrides) {
+    const amount = getOverrideAmount(override)
+    if (amount === null) continue
+
+    const score = scoreOverride(kit, override)
+    if (score <= 0) continue
+
+    if (!bestMatch || score >= bestMatch.score) {
+      bestMatch = { amount, score }
+    }
+  }
+
+  const currentPrice = bestMatch ? bestMatch.amount : standardPrice
+  const originalPrice = standardPrice
+  const hasDiscount =
+    originalPrice !== null &&
+    currentPrice !== null &&
+    currentPrice < originalPrice
+
+  return { currentPrice, originalPrice, hasDiscount }
+}
+
+/**
+ * Format both prices used by the discount UI. `currentLabel` is always the
+ * effective price; `originalLabel` is only rendered when `hasDiscount` is true.
+ */
+export function formatKitPricing(kit, store = {}, locale = 'es-EC') {
+  const { currentPrice, originalPrice, hasDiscount } = resolveKitPrice(
+    kit,
+    store,
+  )
+
+  return {
+    currentLabel: formatPrice(currentPrice, store?.currency, locale),
+    originalLabel: formatPrice(originalPrice, store?.currency, locale),
+    hasDiscount,
+  }
 }
 
 export function formatKitPrice(kit, store = {}, locale = 'es-EC') {
-  return formatPrice(
-    resolveKitPrice(kit, store),
-    store?.currency,
-    locale,
-  )
+  return formatKitPricing(kit, store, locale).currentLabel
 }
 
 export function buildWhatsAppUrl(number, message = '') {

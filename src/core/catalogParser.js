@@ -1,6 +1,7 @@
 const CATEGORY_LABELS = Object.freeze({
   CLUB: 'Club',
   SEL: 'Selección',
+  MARCA: 'Marca',
 })
 
 const TEAM_ACRONYMS = new Set([
@@ -24,7 +25,7 @@ const TEAM_ACRONYMS = new Set([
 const SPANISH_CONNECTORS = new Set(['de', 'del', 'la', 'las', 'los', 'y'])
 
 const CATALOG_FILENAME_PATTERN =
-  /^(CLUB|SEL)_([A-Z0-9-]+)_(RETRO|\d{4})_([A-Z0-9-]+)_([A-Z0-9-]+)\.webp$/i
+  /^(CLUB|SEL|MARCA)_([A-Z0-9-]+)_(RETRO|\d{4})_([A-Z0-9-]+)_([A-Z0-9-]+)\.webp$/i
 
 function getBaseName(filename) {
   return filename.trim().split(/[\\/]/).pop()

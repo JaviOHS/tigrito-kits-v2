@@ -7,6 +7,7 @@ import {
   formatFileSize,
   formatGarment,
   formatKitPrice,
+  formatKitPricing,
   formatNotificationDate,
   formatPrice,
   formatVariant,
@@ -23,6 +24,7 @@ test('formats catalog variants and garments for display', () => {
   assert.equal(formatGarment('CAMISETA'), 'Camiseta')
   assert.equal(formatGarment('IMPERMEABLE'), 'Impermeable')
   assert.equal(formatGarment('PANTALONETA'), 'Pantaloneta')
+  assert.equal(formatGarment('JOGGER'), 'Jogger')
 })
 
 test('formats store prices with the configured currency', () => {
@@ -42,18 +44,121 @@ test('resolves prices per garment with base price fallback', () => {
     currency: 'USD',
   }
 
-  assert.equal(resolveKitPrice({ garment: 'CAMISETA' }, store), 25)
-  assert.equal(resolveKitPrice({ garment: 'IMPERMEABLE' }, store), 30)
-  assert.equal(resolveKitPrice({ garment: 'BUZO' }, store), 25)
-  assert.equal(resolveKitPrice({ garment: 'IMPERMEABLE' }, {}), null)
-  assert.equal(
+  assert.deepEqual(resolveKitPrice({ garment: 'CAMISETA' }, store), {
+    currentPrice: 25,
+    originalPrice: 25,
+    hasDiscount: false,
+  })
+  assert.deepEqual(resolveKitPrice({ garment: 'IMPERMEABLE' }, store), {
+    currentPrice: 30,
+    originalPrice: 30,
+    hasDiscount: false,
+  })
+  assert.deepEqual(resolveKitPrice({ garment: 'BUZO' }, store), {
+    currentPrice: 25,
+    originalPrice: 25,
+    hasDiscount: false,
+  })
+  assert.deepEqual(resolveKitPrice({ garment: 'IMPERMEABLE' }, {}), {
+    currentPrice: null,
+    originalPrice: null,
+    hasDiscount: false,
+  })
+  assert.deepEqual(
     resolveKitPrice({ garment: 'CAMISETA' }, { defaultPrice: 20 }),
-    20,
+    {
+      currentPrice: 20,
+      originalPrice: 20,
+      hasDiscount: false,
+    },
   )
 
   assert.equal(formatKitPrice({ garment: 'CAMISETA' }, store), '$25')
   assert.equal(formatKitPrice({ garment: 'IMPERMEABLE' }, store), '$30')
   assert.equal(formatKitPrice({ garment: 'BUZO' }, store), '$25')
+})
+
+test('applies selective overrides and only flags real discounts', () => {
+  const store = {
+    currency: 'USD',
+    prices: { CAMISETA: 22.5, IMPERMEABLE: 30, CONJUNTO: 40 },
+    overrides: [
+      {
+        filename: 'sel_ecuador_2026_local_camiseta.webp',
+        price: 20,
+      },
+      {
+        team: 'Ecuador',
+        garment: 'buzo',
+        price: 45,
+      },
+    ],
+  }
+  const camiseta = {
+    filename: 'SEL_ECUADOR_2026_LOCAL_CAMISETA.webp',
+    team: 'Ecuador',
+    garment: 'CAMISETA',
+  }
+
+  assert.deepEqual(resolveKitPrice(camiseta, store), {
+    currentPrice: 20,
+    originalPrice: 22.5,
+    hasDiscount: true,
+  })
+  assert.equal(formatKitPrice(camiseta, store), '$20')
+  assert.deepEqual(formatKitPricing(camiseta, store), {
+    currentLabel: '$20',
+    originalLabel: '$22,50',
+    hasDiscount: true,
+  })
+
+  assert.deepEqual(
+    resolveKitPrice(
+      {
+        ...camiseta,
+        filename: 'SEL_ECUADOR_2025_EDICION-1_IMPERMEABLE.webp',
+        garment: 'IMPERMEABLE',
+      },
+      store,
+    ),
+    {
+      currentPrice: 30,
+      originalPrice: 30,
+      hasDiscount: false,
+    },
+  )
+  assert.deepEqual(
+    resolveKitPrice(
+      {
+        ...camiseta,
+        filename: 'SEL_ECUADOR_2026_LOCAL_CONJUNTO.webp',
+        garment: 'CONJUNTO',
+      },
+      store,
+    ),
+    {
+      currentPrice: 40,
+      originalPrice: 40,
+      hasDiscount: false,
+    },
+  )
+
+  // An override that raises the price is not a discount.
+  assert.deepEqual(
+    resolveKitPrice(
+      {
+        filename: 'SEL_ECUADOR_2026_LOCAL_BUZO.webp',
+        team: 'Ecuador',
+        garment: 'BUZO',
+      },
+      { ...store, prices: { ...store.prices, BUZO: 30 } },
+    ),
+    {
+      currentPrice: 45,
+      originalPrice: 30,
+      hasDiscount: false,
+    },
+  )
 })
 
 test('builds encoded WhatsApp URLs and rejects missing numbers', () => {
@@ -98,6 +203,27 @@ test('builds one consistent WhatsApp order message for cards and modals', () => 
     'Quiero pedir: Barcelona SC, temporada 2025, 100 años, Camiseta.',
   )
   assert.equal(buildKitOrderMessage(null, store), '')
+})
+
+test('WhatsApp order messages use the discounted current price', () => {
+  const kit = {
+    filename: 'SEL_ECUADOR_2026_LOCAL_CAMISETA.webp',
+    team: 'Ecuador',
+    season: '2026',
+    variant: 'LOCAL',
+    garment: 'CAMISETA',
+  }
+  const store = {
+    whatsappGreeting: 'Hola Tigrito KitLab',
+    currency: 'USD',
+    prices: { CAMISETA: 22.5 },
+    overrides: [{ team: 'Ecuador', garment: 'CAMISETA', price: 20 }],
+  }
+
+  const message = buildKitOrderMessage(kit, store)
+
+  assert.match(message, /Precio: \$20\./)
+  assert.doesNotMatch(message, /\$22,50/)
 })
 
 test('formats byte counts for the admin image preview', () => {

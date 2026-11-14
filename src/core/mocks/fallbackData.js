@@ -19,9 +19,13 @@ const CATALOG_FILENAMES = Object.freeze([
   'CLUB_REAL-MADRID_2026_LOCAL_CAMISETA.webp',
   'CLUB_REAL-MADRID_RETRO_LOCAL_POLO.webp',
   'CLUB_RIVER-PLATE_2024_LOCAL_CAMISETA.webp',
+  'MARCA_NIKE_2026_NEGRO_IMPERMEABLE.webp',
   'SEL_ARGENTINA_2014_LOCAL_CAMISETA.webp',
   'SEL_ARGENTINA_2026_LOCAL_CONJUNTO.webp',
   'SEL_BRASIL_2026_LOCAL_CAMISETA.webp',
+  'SEL_ECUADOR_2025_EDICION-1_IMPERMEABLE.webp',
+  'SEL_ECUADOR_2026_LOCAL_CAMISETA.webp',
+  'SEL_ECUADOR_2026_LOCAL_CONJUNTO.webp',
   'SEL_ESPANA_1998_LOCAL_CAMISETA.webp',
   'SEL_ESPANA_2026_LOCAL_CAMISETA.webp',
   'SEL_ESPANA_2026_VISITA_PANTALONETA.webp',
@@ -39,7 +43,9 @@ const TEAM_PALETTES = Object.freeze({
   'RIVER-PLATE': { primary: '#FFFFFF', secondary: '#DA291C' },
   ARGENTINA: { primary: '#75AADB', secondary: '#FFFFFF' },
   BRASIL: { primary: '#FFDF00', secondary: '#009C3B' },
+  ECUADOR: { primary: '#FFD100', secondary: '#0033A0' },
   ESPANA: { primary: '#C60B1E', secondary: '#FFC400' },
+  NIKE: { primary: '#111111', secondary: '#FFFFFF' },
 })
 
 const DEFAULT_PALETTE = Object.freeze({
@@ -123,6 +129,20 @@ const FALLBACK_STORE = {
   whatsappGreeting:
     'Hola Tigrito KitLab, quiero información sobre una camiseta.',
   basePrice: 35,
+  prices: {
+    CAMISETA: 25,
+    IMPERMEABLE: 30,
+    CONJUNTO: 40,
+    PANTALONETA: 20,
+    JOGGER: 25,
+  },
+  overrides: [
+    {
+      team: 'Ecuador',
+      garment: 'CAMISETA',
+      price: 20,
+    },
+  ],
   currency: 'USD',
   deliveryCity: 'Milagro',
   paymentMethods: ['Transferencia bancaria', 'Efectivo contra entrega'],

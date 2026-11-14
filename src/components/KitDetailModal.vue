@@ -6,7 +6,7 @@ import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
   formatGarment,
-  formatKitPrice,
+  formatKitPricing,
   formatVariant,
 } from '../core/formatters.js'
 import ModalShell from './ModalShell.vue'
@@ -57,7 +57,7 @@ const subtitle = computed(() =>
         .join(' · ')
     : '',
 )
-const priceLabel = computed(() => formatKitPrice(props.kit, props.store))
+const pricing = computed(() => formatKitPricing(props.kit, props.store))
 const imageAlt = computed(() =>
   props.kit
     ? `${props.kit.team}, ${props.kit.season}, ${variantLabel.value}, ${garmentLabel.value}`
@@ -268,16 +268,27 @@ onBeforeUnmount(() => {
           class="mt-auto rounded-2xl border border-subtle bg-base p-4 sm:p-5"
         >
           <p
-            v-if="priceLabel"
+            v-if="pricing.currentLabel"
             class="text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-muted"
           >
             Precio
           </p>
           <p
-            v-if="priceLabel"
-            class="mt-0.5 font-display text-2xl font-semibold tabular-nums text-main"
+            v-if="pricing.currentLabel"
+            class="mt-0.5 flex flex-wrap items-baseline gap-x-2"
           >
-            {{ priceLabel }}
+            <span
+              class="font-display text-2xl font-semibold tabular-nums"
+              :class="pricing.hasDiscount ? 'text-accent' : 'text-main'"
+            >
+              {{ pricing.currentLabel }}
+            </span>
+            <span
+              v-if="pricing.hasDiscount"
+              class="text-sm font-medium tabular-nums text-muted line-through"
+            >
+              {{ pricing.originalLabel }}
+            </span>
           </p>
 
           <a

@@ -6,7 +6,10 @@ import {
   deleteCatalogImage,
   uploadCatalogImage,
 } from '../../core/adapters/adminStorageAdapter.js'
-import { buildCatalogFilename } from '../../core/filenameBuilder.js'
+import {
+  GARMENT_OPTIONS as GARMENT_CODES,
+  buildCatalogFilename,
+} from '../../core/filenameBuilder.js'
 import {
   formatFileSize,
   formatGarment,
@@ -31,16 +34,12 @@ const CURRENT_YEAR = String(new Date().getFullYear())
 const CATEGORY_OPTIONS = Object.freeze([
   { value: 'CLUB', label: 'Club' },
   { value: 'SEL', label: 'Selección' },
+  { value: 'MARCA', label: 'Marca' },
 ])
 
-const GARMENT_OPTIONS = Object.freeze([
-  { value: 'CAMISETA', label: 'Camiseta' },
-  { value: 'BUZO', label: 'Buzo' },
-  { value: 'CONJUNTO', label: 'Conjunto' },
-  { value: 'IMPERMEABLE', label: 'Impermeable' },
-  { value: 'PANTALONETA', label: 'Pantaloneta' },
-  { value: 'POLO', label: 'Polo' },
-])
+const GARMENT_OPTIONS = Object.freeze(
+  GARMENT_CODES.map((value) => ({ value, label: formatGarment(value) })),
+)
 
 const VARIANT_SUGGESTIONS = Object.freeze([
   'LOCAL',
@@ -105,10 +104,22 @@ const previewTeamSegment = computed(
   () => previewFilename.value.split('_')[1] ?? '',
 )
 
+const isBrandCategory = computed(() => form.category === 'MARCA')
+const teamFieldLabel = computed(() =>
+  isBrandCategory.value ? 'Marca' : 'Equipo',
+)
+const teamPlaceholder = computed(() =>
+  isBrandCategory.value ? 'Nike' : 'Barcelona SC',
+)
+
 const filenameHint = computed(() => {
   if (previewFilename.value) return ''
 
-  if (!String(form.team ?? '').trim()) return 'Escribe el nombre del equipo.'
+  if (!String(form.team ?? '').trim()) {
+    return isBrandCategory.value
+      ? 'Escribe el nombre de la marca.'
+      : 'Escribe el nombre del equipo.'
+  }
   if (!String(form.variant ?? '').trim()) return 'Escribe la variante.'
   if (!String(form.season ?? '').trim()) return 'Escribe la temporada.'
 
@@ -576,12 +587,14 @@ onBeforeUnmount(() => {
             </label>
 
             <label class="col-span-2 block">
-              <span class="text-xs font-semibold text-main">Equipo</span>
+              <span class="text-xs font-semibold text-main">
+                {{ teamFieldLabel }}
+              </span>
               <input
                 v-model="form.team"
                 type="text"
                 list="admin-team-options"
-                placeholder="Barcelona SC"
+                :placeholder="teamPlaceholder"
                 :class="[fieldClass, 'mt-1.5']"
               />
               <span class="mt-1 block text-[11px] text-muted">

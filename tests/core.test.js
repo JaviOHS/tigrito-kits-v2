@@ -45,6 +45,19 @@ test('parses the Barcelona SC anniversary fixture accurately', () => {
   assert.equal(product.garment, 'CAMISETA')
 })
 
+test('parses brand category filenames as MARCA', () => {
+  const product = parseCatalogFilename(
+    'MARCA_NIKE_2026_NEGRO_IMPERMEABLE.webp',
+  )
+
+  assert.equal(product.category, 'MARCA')
+  assert.equal(product.categoryLabel, 'Marca')
+  assert.equal(product.team, 'Nike')
+  assert.equal(product.season, '2026')
+  assert.equal(product.variant, 'NEGRO')
+  assert.equal(product.garment, 'IMPERMEABLE')
+})
+
 test('formats team segments with acronyms and Spanish connectors', () => {
   assert.equal(formatTeamName('BARCELONA-SC'), 'Barcelona SC')
   assert.equal(formatTeamName('FC-BARCELONA'), 'FC Barcelona')

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  GARMENT_OPTIONS,
   buildCatalogFilename,
   validateCatalogFilename,
 } from '../src/core/filenameBuilder.js'
@@ -27,6 +28,25 @@ test('builds uppercase ASCII filenames from accented Spanish input', () => {
       garment: 'Camiseta',
     }),
     'CLUB_BARCELONA-SC_2026_100-ANOS-1_CAMISETA.webp',
+  )
+})
+
+test('builds and validates MARCA category filenames with JOGGER', () => {
+  assert.ok(GARMENT_OPTIONS.includes('JOGGER'))
+
+  assert.equal(
+    buildCatalogFilename({
+      category: 'MARCA',
+      team: 'Nike',
+      season: '2026',
+      variant: 'Negro',
+      garment: 'Jogger',
+    }),
+    'MARCA_NIKE_2026_NEGRO_JOGGER.webp',
+  )
+  assert.equal(
+    validateCatalogFilename('MARCA_NIKE_2026_NEGRO_IMPERMEABLE.webp'),
+    true,
   )
 })
 

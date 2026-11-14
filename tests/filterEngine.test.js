@@ -24,7 +24,11 @@ test('defines the requested declarative category and team rules', () => {
 
   assert.deepEqual(
     category.options.map((option) => option.value),
-    ['ALL', 'CLUB', 'SEL'],
+    ['ALL', 'CLUB', 'SEL', 'MARCA'],
+  )
+  assert.equal(
+    category.options.find((option) => option.value === 'MARCA').label,
+    'Marcas',
   )
   assert.equal(category.type, 'select')
   assert.equal(team.optionsSource, 'teams')
@@ -53,11 +57,14 @@ test('returns every item with default filters', () => {
 test('filters by category pills', () => {
   const clubs = apply({ category: 'CLUB' })
   const selections = apply({ category: 'SEL' })
+  const brands = apply({ category: 'MARCA' })
 
   assert.ok(clubs.length > 0)
   assert.ok(clubs.every((kit) => kit.category === 'CLUB'))
   assert.ok(selections.length > 0)
   assert.ok(selections.every((kit) => kit.category === 'SEL'))
+  assert.ok(brands.length > 0)
+  assert.ok(brands.every((kit) => kit.category === 'MARCA'))
 })
 
 test('filters retro items through the boolean toggle', () => {

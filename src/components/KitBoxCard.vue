@@ -6,7 +6,7 @@ import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
   formatGarment,
-  formatKitPrice,
+  formatKitPricing,
   formatVariant,
 } from '../core/formatters.js'
 
@@ -31,7 +31,7 @@ const garmentLabel = computed(() => formatGarment(props.kit?.garment))
 const showGarmentBadge = computed(
   () => Boolean(props.kit?.garment) && props.kit.garment !== 'CAMISETA',
 )
-const priceLabel = computed(() => formatKitPrice(props.kit, props.store))
+const pricing = computed(() => formatKitPricing(props.kit, props.store))
 const seasonBadgeClass = computed(() =>
   props.kit?.isRetro
     ? 'border-accent bg-accent text-accent-contrast'
@@ -129,10 +129,21 @@ function handleCardClick(event) {
 
       <div class="mt-auto flex items-end justify-between gap-1.5 pt-2.5">
         <p
-          v-if="priceLabel"
-          class="font-display text-[1rem] font-semibold tabular-nums text-main sm:text-lg"
+          v-if="pricing.currentLabel"
+          class="flex min-w-0 flex-wrap items-baseline gap-x-1.5"
         >
-          {{ priceLabel }}
+          <span
+            class="font-display text-[1rem] font-semibold tabular-nums sm:text-lg"
+            :class="pricing.hasDiscount ? 'text-accent' : 'text-main'"
+          >
+            {{ pricing.currentLabel }}
+          </span>
+          <span
+            v-if="pricing.hasDiscount"
+            class="text-[0.7rem] font-medium tabular-nums text-muted line-through sm:text-xs"
+          >
+            {{ pricing.originalLabel }}
+          </span>
         </p>
 
         <a
@@ -141,7 +152,7 @@ function handleCardClick(event) {
           target="_blank"
           rel="noopener noreferrer"
           :aria-label="`Pedir ${kit.team} ${kit.season} por WhatsApp`"
-          class="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-accent-dark px-2.5 text-xs font-semibold text-surface transition-colors hover:bg-accent hover:text-accent-contrast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          class="ml-auto inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-accent-dark px-2.5 text-xs font-semibold text-surface transition-colors hover:bg-accent hover:text-accent-contrast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <component
             :is="resolveIcon('MessageCircle')"

@@ -5,6 +5,20 @@ const STRICT_FILENAME_PATTERN = new RegExp(
   `^${SEGMENT_PATTERN}(?:_${SEGMENT_PATTERN}){4}\\.webp$`,
 )
 
+/**
+ * Canonical garment codes used by the admin UI. The builder remains generic
+ * for backward compatibility, but new garment suggestions belong here.
+ */
+export const GARMENT_OPTIONS = Object.freeze([
+  'CAMISETA',
+  'BUZO',
+  'CONJUNTO',
+  'IMPERMEABLE',
+  'PANTALONETA',
+  'POLO',
+  'JOGGER',
+])
+
 // NFD handles most Latin accents; these letters do not decompose cleanly.
 const ASCII_FALLBACKS = Object.freeze({
   'Ø': 'O',

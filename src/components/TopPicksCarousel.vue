@@ -1,10 +1,11 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import { resolveIcon } from '../config/icons.registry.js'
 import {
   buildKitOrderMessage,
   buildWhatsAppUrl,
+  formatKitPricing,
   formatVariant,
 } from '../core/formatters.js'
 
@@ -27,6 +28,13 @@ const ChevronLeftIcon = resolveIcon('ChevronLeft')
 const ChevronRightIcon = resolveIcon('ChevronRight')
 
 const SCROLL_STEP = 320
+
+const pricedKits = computed(() =>
+  props.kits.map((kit) => ({
+    kit,
+    pricing: formatKitPricing(kit, props.store),
+  })),
+)
 
 function scrollCarousel(direction) {
   stripRef.value?.scrollBy({
@@ -86,7 +94,7 @@ function orderUrl(kit) {
       class="strip -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0"
     >
       <article
-        v-for="kit in kits"
+        v-for="{ kit, pricing } in pricedKits"
         :key="kit.id"
         class="relative w-[210px] min-w-[210px] shrink-0 snap-start overflow-hidden rounded-xl border border-accent/40 bg-surface shadow-soft transition-colors hover:border-accent/70 sm:w-[245px] sm:min-w-[245px]"
       >
@@ -123,8 +131,27 @@ function orderUrl(kit) {
             {{ formatVariant(kit.variant) }}, {{ kit.season }}
           </p>
 
-          <div v-if="orderUrl(kit)" class="mt-2 flex justify-end">
+          <div class="mt-2 flex items-end justify-end gap-1.5">
+            <p
+              v-if="pricing.currentLabel"
+              class="mr-auto flex min-w-0 flex-wrap items-baseline gap-x-1"
+            >
+              <span
+                class="font-display text-sm font-semibold tabular-nums"
+                :class="pricing.hasDiscount ? 'text-accent' : 'text-main'"
+              >
+                {{ pricing.currentLabel }}
+              </span>
+              <span
+                v-if="pricing.hasDiscount"
+                class="text-[0.65rem] font-medium tabular-nums text-muted line-through"
+              >
+                {{ pricing.originalLabel }}
+              </span>
+            </p>
+
             <a
+              v-if="orderUrl(kit)"
               :href="orderUrl(kit)"
               target="_blank"
               rel="noopener noreferrer"

@@ -15,6 +15,7 @@ export const FILTER_CONFIG = Object.freeze([
       { value: 'ALL', label: 'Todos' },
       { value: 'CLUB', label: 'Clubes' },
       { value: 'SEL', label: 'Selecciones' },
+      { value: 'MARCA', label: 'Marcas' },
     ]),
   },
   {
