@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "skills": {
+    "create-readme": {
+      "source": "github/awesome-copilot",
+      "commit": "93fc8b9ee3ef56b9b5e7261e6ce92d314cb2c1cf",
+      "sourceType": "github",
+      "skillPath": "skills/create-readme/SKILL.md",
+      "computedHash": "59e7a20cc6e183f31c0161a619b66f96d05656378c1cef886522b6845d33c953"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "83485963700bcf11d5bf78118facb301676b69d918fee2e45a95e7f1a2840f6c"
+    }
+  }
+}

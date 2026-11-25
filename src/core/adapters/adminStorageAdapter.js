@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { parseCatalogFilename } from '../catalogParser.js'
+import { validateCatalogFilename } from '../filenameBuilder.js'
 import { CONFIG_FILES, DEFAULT_BUCKET } from '../storageConfig.js'
 
 export { CONFIG_FILES, DEFAULT_BUCKET }
@@ -216,6 +217,136 @@ export function createAdminStorageAdapter({
     return data
   }
 
+  async function catalogFileExists(fileName) {
+    const { data, error } = await getStorage().list('catalog', {
+      search: fileName,
+      limit: 100,
+    })
+
+    assertNoError({ error })
+
+    return (Array.isArray(data) ? data : []).some(
+      (entry) =>
+        entry?.id !== null && extractFileName(entry?.name) === fileName,
+    )
+  }
+
+  /**
+   * Edit an existing catalog item without deleting it first.
+   *
+   * - Same filename + new photo: replace the object with `upsert: true`.
+   * - New filename only: move the object, guarding the destination unless
+   *   `overwrite` is explicitly confirmed.
+   * - New filename + new photo: upload to the new path (no upsert unless
+   *   confirmed) and remove the previous object.
+   */
+  async function updateCatalogItem({
+    oldFilename,
+    newFilename,
+    newWebpBlob = null,
+    overwrite = false,
+  } = {}) {
+    const oldFileName = normalizeCatalogFileName(oldFilename)
+
+    if (!oldFileName) {
+      throw new Error(`Invalid catalog filename: ${String(oldFilename)}`)
+    }
+
+    if (!validateCatalogFilename(newFilename)) {
+      throw new Error(`Invalid catalog filename: ${String(newFilename)}`)
+    }
+
+    if (newWebpBlob == null) {
+      if (oldFileName === newFilename) {
+        throw new Error(
+          'Provide a new photo or change the catalog filename to update.',
+        )
+      }
+
+      if (!overwrite && (await catalogFileExists(newFilename))) {
+        throw new Error(
+          `A catalog file named "${newFilename}" already exists. Confirm the overwrite to continue.`,
+        )
+      }
+
+      const { data, error } = await getStorage().move(
+        `catalog/${oldFileName}`,
+        `catalog/${newFilename}`,
+      )
+
+      assertNoError({ error })
+
+      if (!data) throw new Error('Catalog move returned no data.')
+
+      return {
+        filename: newFilename,
+        previousFilename: oldFileName,
+        renamed: true,
+        replaced: false,
+        moved: data,
+      }
+    }
+
+    if (oldFileName === newFilename) {
+      const { data, error } = await getStorage().upload(
+        `catalog/${newFilename}`,
+        normalizeWebpBlob(newWebpBlob),
+        {
+          contentType: 'image/webp',
+          cacheControl: '0',
+          upsert: true,
+        },
+      )
+
+      const uploaded = assertUploadResult(
+        { data, error },
+        `Catalog image update "${newFilename}"`,
+      )
+
+      return {
+        filename: newFilename,
+        previousFilename: oldFileName,
+        renamed: false,
+        replaced: true,
+        uploaded,
+      }
+    }
+
+    const { data, error } = await getStorage().upload(
+      `catalog/${newFilename}`,
+      normalizeWebpBlob(newWebpBlob),
+      {
+        contentType: 'image/webp',
+        cacheControl: '0',
+        upsert: Boolean(overwrite),
+      },
+    )
+
+    const uploaded = assertUploadResult(
+      { data, error },
+      `Catalog image upload "${newFilename}"`,
+    )
+
+    const { data: removed, error: removeError } = await getStorage().remove([
+      `catalog/${oldFileName}`,
+    ])
+
+    if (removeError) {
+      throw new Error(
+        `"${newFilename}" was uploaded, but the previous file "${oldFileName}" could not be removed: ${removeError.message}`,
+      )
+    }
+
+    return {
+      filename: newFilename,
+      previousFilename: oldFileName,
+      renamed: true,
+      replaced: true,
+      uploaded,
+      removed,
+    }
+  }
+
   return Object.freeze({
     bucket: normalizedBucket,
     isConfigured,
@@ -226,6 +357,7 @@ export function createAdminStorageAdapter({
     saveConfigJson,
     uploadCatalogImage,
     deleteCatalogImage,
+    updateCatalogItem,
   })
 }
 
@@ -249,5 +381,7 @@ export const uploadCatalogImage = (...args) =>
   adminStorageAdapter.uploadCatalogImage(...args)
 export const deleteCatalogImage = (...args) =>
   adminStorageAdapter.deleteCatalogImage(...args)
+export const updateCatalogItem = (...args) =>
+  adminStorageAdapter.updateCatalogItem(...args)
 
 export default adminStorageAdapter

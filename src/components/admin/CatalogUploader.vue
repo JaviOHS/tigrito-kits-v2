@@ -1,27 +1,35 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 
 import { resolveIcon } from '../../config/icons.registry.js'
 import {
   deleteCatalogImage,
+  updateCatalogItem,
   uploadCatalogImage,
 } from '../../core/adapters/adminStorageAdapter.js'
 import {
-  GARMENT_OPTIONS as GARMENT_CODES,
-  buildCatalogFilename,
-} from '../../core/filenameBuilder.js'
+  buildGarmentOptions,
+  buildTeamOptions,
+  buildVariantOptions,
+} from '../../core/adminOptions.js'
+import { buildCatalogFilename } from '../../core/filenameBuilder.js'
 import {
   formatFileSize,
   formatGarment,
   formatVariant,
 } from '../../core/formatters.js'
 import { optimizeImageToWebp } from '../../core/imageOptimizer.js'
+import BaseCombobox from '../BaseCombobox.vue'
 import AdminStatusBanner from './AdminStatusBanner.vue'
 
 const props = defineProps({
   kits: {
     type: Array,
     default: () => [],
+  },
+  store: {
+    type: Object,
+    default: () => ({}),
   },
 })
 
@@ -37,25 +45,16 @@ const CATEGORY_OPTIONS = Object.freeze([
   { value: 'MARCA', label: 'Marca' },
 ])
 
-const GARMENT_OPTIONS = Object.freeze(
-  GARMENT_CODES.map((value) => ({ value, label: formatGarment(value) })),
-)
-
-const VARIANT_SUGGESTIONS = Object.freeze([
-  'LOCAL',
-  'VISITA',
-  'TERCERA',
-  'ED-LIMITADA',
-  '100-ANOS-1',
-])
-
 const ImagePlusIcon = resolveIcon('ImagePlus')
 const UploadIcon = resolveIcon('Upload')
+const SaveIcon = resolveIcon('Save')
+const PencilIcon = resolveIcon('Pencil')
 const TrashIcon = resolveIcon('Trash2')
 const AlertIcon = resolveIcon('AlertCircle')
 const SearchIcon = resolveIcon('Search')
 const ShirtIcon = resolveIcon('Shirt')
 const ChevronDownIcon = resolveIcon('ChevronDown')
+const XIcon = resolveIcon('X')
 
 const fileInput = ref(null)
 const form = reactive({
@@ -75,6 +74,12 @@ const uploadFeedback = ref(null)
 const uploading = ref(false)
 const lastUploadedFilename = ref('')
 
+const editingFilename = ref('')
+const editingImageUrl = ref('')
+const editOverwriteConfirmed = ref(false)
+const savingEdit = ref(false)
+const cacheBustedImageUrls = ref({})
+
 const isDragging = ref(false)
 const dragDepth = ref(0)
 
@@ -89,15 +94,11 @@ let optimizeToken = 0
 const fieldClass =
   'w-full rounded-xl border border-subtle bg-base px-3 py-2 text-sm text-main shadow-soft outline-none transition-colors placeholder:text-muted focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
-const teamOptions = computed(() => {
-  const teams = new Set()
-
-  for (const kit of props.kits ?? []) {
-    if (kit?.team) teams.add(kit.team)
-  }
-
-  return [...teams].sort((a, b) => a.localeCompare(b, 'es'))
-})
+const teamOptions = computed(() => buildTeamOptions(props.kits))
+const variantOptions = computed(() => buildVariantOptions(props.kits))
+const garmentOptions = computed(() =>
+  buildGarmentOptions(props.store, props.kits),
+)
 
 const previewFilename = computed(() => buildCatalogFilename(form))
 const previewTeamSegment = computed(
@@ -139,18 +140,65 @@ const filenameExists = computed(
     ),
 )
 
+const isEditing = computed(() => Boolean(editingFilename.value))
+
+const metadataChanged = computed(
+  () => isEditing.value && previewFilename.value !== editingFilename.value,
+)
+
+const editTargetExists = computed(
+  () =>
+    metadataChanged.value &&
+    Boolean(previewFilename.value) &&
+    (props.kits ?? []).some(
+      (kit) => kit?.filename === previewFilename.value,
+    ),
+)
+
+const hasEditChanges = computed(
+  () => metadataChanged.value || Boolean(optimized.value),
+)
+
+const canSaveEdit = computed(
+  () =>
+    isEditing.value &&
+    Boolean(previewFilename.value) &&
+    hasEditChanges.value &&
+    !savingEdit.value &&
+    !optimizing.value &&
+    (!editTargetExists.value || editOverwriteConfirmed.value),
+)
+
 const showOverwriteWarning = computed(
   () =>
+    !isEditing.value &&
     filenameExists.value &&
     previewFilename.value !== lastUploadedFilename.value,
 )
 
 const canUpload = computed(
   () =>
+    !isEditing.value &&
     Boolean(optimized.value && previewFilename.value) &&
     !uploading.value &&
     !optimizing.value,
 )
+
+const submitBusy = computed(() =>
+  isEditing.value ? savingEdit.value : uploading.value,
+)
+
+const submitDisabled = computed(() =>
+  isEditing.value ? !canSaveEdit.value : !canUpload.value,
+)
+
+const submitLabel = computed(() => {
+  if (isEditing.value) {
+    return savingEdit.value ? 'Guardando…' : 'Guardar cambios'
+  }
+
+  return uploading.value ? 'Subiendo…' : 'Subir al catálogo'
+})
 
 const savingsPercent = computed(() => {
   const result = optimized.value
@@ -282,6 +330,132 @@ function clearSearch() {
   search.value = ''
 }
 
+function resolveKitImageUrl(kit) {
+  if (!kit?.filename) return ''
+  return cacheBustedImageUrls.value[kit.filename] || kit.imageUrl || ''
+}
+
+function resetForm() {
+  form.category = 'CLUB'
+  form.team = ''
+  form.season = CURRENT_YEAR
+  form.variant = 'LOCAL'
+  form.garment = 'CAMISETA'
+}
+
+function resetEditState() {
+  editingFilename.value = ''
+  editingImageUrl.value = ''
+  editOverwriteConfirmed.value = false
+  clearSelectedFile()
+}
+
+function startEdit(kit) {
+  if (
+    !kit?.filename ||
+    deleting.value ||
+    savingEdit.value ||
+    uploading.value ||
+    optimizing.value
+  ) {
+    return
+  }
+
+  clearTransientFeedback()
+  pendingDelete.value = null
+  clearSelectedFile()
+  lastUploadedFilename.value = ''
+
+  const [category, team, season, variant, garment] = kit.filename
+    .replace(/\.webp$/i, '')
+    .split('_')
+
+  editingFilename.value = kit.filename
+  editingImageUrl.value = resolveKitImageUrl(kit)
+  editOverwriteConfirmed.value = false
+
+  const normalizedCategory = String(category ?? '').toUpperCase()
+
+  form.category = CATEGORY_OPTIONS.some(
+    (option) => option.value === normalizedCategory,
+  )
+    ? normalizedCategory
+    : (kit.category ?? 'CLUB')
+  form.team = String(team ?? kit.team ?? '').toUpperCase()
+  form.season = String(season ?? kit.season ?? CURRENT_YEAR).toUpperCase()
+  form.variant = String(variant ?? kit.variant ?? '').toUpperCase()
+  form.garment = String(garment ?? kit.garment ?? 'CAMISETA').toUpperCase()
+}
+
+function cancelEdit() {
+  if (savingEdit.value) return
+
+  resetEditState()
+  resetForm()
+  clearTransientFeedback()
+}
+
+async function saveEditedItem() {
+  if (!canSaveEdit.value) return
+
+  clearTransientFeedback()
+  const oldFilename = editingFilename.value
+  const newFilename = previewFilename.value
+  const replacementBlob = optimized.value?.blob ?? null
+  const currentImageUrl = editingImageUrl.value
+  const targetImageUrl = editTargetExists.value
+    ? ((props.kits ?? []).find((kit) => kit?.filename === newFilename)
+        ?.imageUrl ?? '')
+    : ''
+  savingEdit.value = true
+
+  try {
+    await updateCatalogItem({
+      oldFilename,
+      newFilename,
+      newWebpBlob: replacementBlob,
+      overwrite: editOverwriteConfirmed.value,
+    })
+
+    const renamed = oldFilename !== newFilename
+
+    let cacheBustBaseUrl = ''
+    if (renamed) {
+      if (editOverwriteConfirmed.value) cacheBustBaseUrl = targetImageUrl
+    } else if (replacementBlob) {
+      cacheBustBaseUrl = currentImageUrl
+    }
+
+    if (cacheBustBaseUrl) {
+      const separator = cacheBustBaseUrl.includes('?') ? '&' : '?'
+      cacheBustedImageUrls.value = {
+        ...cacheBustedImageUrls.value,
+        [newFilename]: `${cacheBustBaseUrl}${separator}v=${Date.now()}`,
+      }
+    }
+
+    resetEditState()
+    lastUploadedFilename.value = newFilename
+    uploadFeedback.value = {
+      type: 'success',
+      message: renamed
+        ? `“${oldFilename}” se renombró a “${newFilename}”.`
+        : `“${newFilename}” se actualizó con la nueva foto.`,
+    }
+    emit('changed', {
+      type: 'update',
+      filename: newFilename,
+      previousFilename: oldFilename,
+      renamed,
+      replaced: Boolean(replacementBlob),
+    })
+  } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    savingEdit.value = false
+  }
+}
+
 async function uploadSelectedImage() {
   if (!canUpload.value) return
 
@@ -306,7 +480,7 @@ async function uploadSelectedImage() {
 }
 
 function requestDelete(kit) {
-  if (!kit?.filename || deleting.value) return
+  if (!kit?.filename || deleting.value || savingEdit.value) return
   clearTransientFeedback()
   pendingDelete.value = kit.filename
 }
@@ -326,6 +500,12 @@ async function confirmDelete(kit) {
 
     if (!Array.isArray(removed) || removed.length === 0) {
       throw new Error('Storage no confirmó la eliminación del archivo.')
+    }
+
+    if (editingFilename.value === kit.filename) {
+      resetEditState()
+      resetForm()
+      await nextTick()
     }
 
     deletedFilenames.value = [...deletedFilenames.value, kit.filename]
@@ -354,6 +534,15 @@ watch(
     deletedFilenames.value = deletedFilenames.value.filter((filename) =>
       present.has(filename),
     )
+
+    if (
+      editingFilename.value &&
+      !present.has(editingFilename.value) &&
+      !savingEdit.value
+    ) {
+      resetEditState()
+      resetForm()
+    }
   },
 )
 
@@ -361,6 +550,8 @@ watch(previewFilename, (filename) => {
   if (filename !== lastUploadedFilename.value) {
     lastUploadedFilename.value = ''
   }
+
+  if (isEditing.value) editOverwriteConfirmed.value = false
 
   clearTransientFeedback()
 })
@@ -391,11 +582,35 @@ onBeforeUnmount(() => {
           </h3>
         </div>
         <p class="mt-1 text-sm leading-6 text-muted">
-          Sube fotos optimizadas y retira las que ya no están.
+          Sube fotos optimizadas, edita sus datos o retira las que ya no están.
         </p>
       </div>
       <p class="font-mono text-[11px] text-muted">catalog/</p>
     </header>
+
+    <div
+      v-if="isEditing"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3"
+    >
+      <div class="min-w-0">
+        <p class="text-xs font-semibold text-accent">Editando kit</p>
+        <p
+          class="truncate font-mono text-[11px] text-main"
+          :title="editingFilename"
+        >
+          {{ editingFilename }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent hover:text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+        :disabled="savingEdit"
+        @click="cancelEdit"
+      >
+        <component :is="XIcon" :size="13" aria-hidden="true" />
+        Cancelar edición
+      </button>
+    </div>
 
     <div
       class="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]"
@@ -414,7 +629,7 @@ onBeforeUnmount(() => {
           <label
             class="group relative flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed bg-base text-center transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent"
             :class="[
-              optimized || optimizing
+              optimized || optimizing || isEditing
                 ? 'min-h-0 p-3'
                 : 'min-h-48 px-6 py-8',
               isDragging
@@ -473,6 +688,46 @@ onBeforeUnmount(() => {
                     class="mt-1 block text-xs font-semibold text-main underline decoration-accent underline-offset-4"
                   >
                     Cambiar foto
+                  </span>
+                </span>
+              </span>
+            </template>
+
+            <template v-else-if="isEditing">
+              <span class="flex w-full items-center gap-3 text-left">
+                <span
+                  class="grid h-20 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border border-subtle bg-base"
+                >
+                  <img
+                    v-if="editingImageUrl"
+                    :src="editingImageUrl"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    class="size-full object-contain"
+                  />
+                  <component
+                    v-else
+                    :is="ShirtIcon"
+                    :size="20"
+                    class="text-muted"
+                    aria-hidden="true"
+                  />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-semibold text-main">
+                    Foto actual
+                  </span>
+                  <span
+                    class="mt-0.5 block truncate font-mono text-[11px] text-muted"
+                    :title="editingFilename"
+                  >
+                    {{ editingFilename }}
+                  </span>
+                  <span
+                    class="mt-1 block text-xs font-semibold text-main underline decoration-accent underline-offset-4"
+                  >
+                    Reemplazar foto
                   </span>
                 </span>
               </span>
@@ -586,16 +841,20 @@ onBeforeUnmount(() => {
               />
             </label>
 
-            <label class="col-span-2 block">
-              <span class="text-xs font-semibold text-main">
+            <div class="col-span-2 block">
+              <label
+                for="admin-team"
+                class="block text-xs font-semibold text-main"
+              >
                 {{ teamFieldLabel }}
-              </span>
-              <input
+              </label>
+              <BaseCombobox
+                id="admin-team"
                 v-model="form.team"
-                type="text"
-                list="admin-team-options"
+                :options="teamOptions"
                 :placeholder="teamPlaceholder"
-                :class="[fieldClass, 'mt-1.5']"
+                :input-class="fieldClass"
+                class="mt-1.5"
               />
               <span class="mt-1 block text-[11px] text-muted">
                 <template v-if="previewTeamSegment">
@@ -605,54 +864,48 @@ onBeforeUnmount(() => {
                   Se convierte a MAYÚSCULAS-CON-GUIONES.
                 </template>
               </span>
-            </label>
+            </div>
 
-            <label class="block">
-              <span class="text-xs font-semibold text-main">Variante</span>
-              <input
+            <div class="block">
+              <label
+                for="admin-variant"
+                class="block text-xs font-semibold text-main"
+              >
+                Variante
+              </label>
+              <BaseCombobox
+                id="admin-variant"
                 v-model="form.variant"
-                type="text"
-                list="admin-variant-options"
+                :options="variantOptions"
                 placeholder="LOCAL"
-                :class="[fieldClass, 'mt-1.5']"
+                :input-class="fieldClass"
+                class="mt-1.5"
               />
-            </label>
+            </div>
 
-            <label class="block">
-              <span class="text-xs font-semibold text-main">Prenda</span>
-              <span class="relative mt-1.5 block">
-                <select
-                  v-model="form.garment"
-                  :class="[fieldClass, 'appearance-none pr-8']"
-                >
-                  <option
-                    v-for="option in GARMENT_OPTIONS"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-                <component
-                  :is="ChevronDownIcon"
-                  :size="14"
-                  class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-                  aria-hidden="true"
-                />
-              </span>
-            </label>
+            <div class="block">
+              <label
+                for="admin-garment"
+                class="block text-xs font-semibold text-main"
+              >
+                Prenda
+              </label>
+              <BaseCombobox
+                id="admin-garment"
+                v-model="form.garment"
+                :options="garmentOptions"
+                placeholder="CAMISETA"
+                :input-class="fieldClass"
+                class="mt-1.5"
+              />
+            </div>
           </div>
 
-          <datalist id="admin-team-options">
-            <option v-for="team in teamOptions" :key="team" :value="team" />
-          </datalist>
-          <datalist id="admin-variant-options">
-            <option
-              v-for="variant in VARIANT_SUGGESTIONS"
-              :key="variant"
-              :value="variant"
-            />
-          </datalist>
+          <p class="text-[11px] leading-5 text-muted">
+            Equipo, variante y prenda aceptan valores nuevos. Las sugerencias
+            salen del catálogo y de
+            <span class="font-mono">store.json</span>.
+          </p>
 
           <div
             class="rounded-xl border border-subtle bg-accent-dark px-4 py-3 text-surface"
@@ -695,31 +948,57 @@ onBeforeUnmount(() => {
             >
               3
             </span>
-            <h4 class="font-display text-lg font-semibold">Publica</h4>
+            <h4 class="font-display text-lg font-semibold">
+              {{ isEditing ? 'Guarda los cambios' : 'Publica' }}
+            </h4>
           </div>
 
           <button
             type="button"
             class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast shadow-soft transition-colors hover:bg-accent-dark hover:text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!canUpload"
-            @click="uploadSelectedImage"
+            :disabled="submitDisabled"
+            @click="isEditing ? saveEditedItem() : uploadSelectedImage()"
           >
             <span
-              v-if="uploading"
+              v-if="submitBusy"
               class="size-4 animate-spin rounded-full border-2 border-accent-contrast/30 border-t-accent-contrast motion-reduce:animate-none"
               aria-hidden="true"
             />
             <component
               v-else
-              :is="UploadIcon"
+              :is="isEditing ? SaveIcon : UploadIcon"
               :size="16"
               aria-hidden="true"
             />
-            {{ uploading ? 'Subiendo…' : 'Subir al catálogo' }}
+            {{ submitLabel }}
           </button>
 
+          <button
+            v-if="isEditing"
+            type="button"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-subtle bg-surface px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-accent hover:text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="savingEdit"
+            @click="cancelEdit"
+          >
+            <component :is="XIcon" :size="15" aria-hidden="true" />
+            Cancelar edición
+          </button>
+
+          <p v-if="isEditing" class="text-xs leading-5 text-muted">
+            <template v-if="!hasEditChanges">
+              Cambia algún dato o elige una foto nueva para guardar.
+            </template>
+            <template v-else-if="editTargetExists">
+              Ya existe un archivo con ese nombre. Confirma el reemplazo para
+              continuar.
+            </template>
+            <template v-else>
+              Puedes guardar solo los datos o reemplazar la foto en el mismo
+              paso.
+            </template>
+          </p>
           <p
-            v-if="!optimized && !optimizing"
+            v-else-if="!optimized && !optimizing"
             class="text-xs leading-5 text-muted"
           >
             Elige una foto para activar la publicación.
@@ -728,6 +1007,22 @@ onBeforeUnmount(() => {
             Se guarda en <span class="font-mono">catalog/</span> y el catálogo
             se actualiza al terminar.
           </p>
+
+          <label
+            v-if="isEditing && editTargetExists"
+            class="flex items-start gap-2 rounded-xl border border-subtle bg-base px-3 py-2 text-xs leading-5 text-main"
+          >
+            <input
+              v-model="editOverwriteConfirmed"
+              type="checkbox"
+              class="mt-0.5 size-4 shrink-0 accent-[var(--accent-primary)]"
+              :disabled="savingEdit"
+            />
+            <span>
+              Confirmo reemplazar el archivo existente
+              <span class="break-all font-mono">{{ previewFilename }}</span>.
+            </span>
+          </label>
 
           <AdminStatusBanner
             v-if="uploadError"
@@ -789,14 +1084,17 @@ onBeforeUnmount(() => {
             v-for="kit in visibleKits"
             :key="kit.filename"
             class="py-3 first:pt-0 last:pb-0"
+            :class="
+              editingFilename === kit.filename ? 'bg-accent/5' : ''
+            "
           >
             <div class="flex items-center gap-3">
               <span
                 class="grid size-11 shrink-0 place-items-center overflow-hidden rounded-lg border border-subtle bg-base"
               >
                 <img
-                  v-if="kit.imageUrl"
-                  :src="kit.imageUrl"
+                  v-if="resolveKitImageUrl(kit)"
+                  :src="resolveKitImageUrl(kit)"
                   alt=""
                   loading="lazy"
                   decoding="async"
@@ -828,19 +1126,38 @@ onBeforeUnmount(() => {
                 </p>
               </div>
 
-              <button
-                type="button"
-                class="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-transparent text-muted transition-colors hover:border-danger hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
-                :aria-label="`Eliminar ${kit.filename}`"
-                :disabled="Boolean(deleting)"
-                @click="requestDelete(kit)"
-              >
-                <component
-                  :is="TrashIcon"
-                  :size="15"
-                  aria-hidden="true"
-                />
-              </button>
+              <div class="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  class="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-transparent px-2 text-xs font-semibold text-muted transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  :aria-label="`Editar ${kit.filename}`"
+                  :disabled="
+                    Boolean(deleting) || savingEdit || uploading || optimizing
+                  "
+                  @click="startEdit(kit)"
+                >
+                  <component
+                    :is="PencilIcon"
+                    :size="13"
+                    aria-hidden="true"
+                  />
+                  Editar
+                </button>
+
+                <button
+                  type="button"
+                  class="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-transparent text-muted transition-colors hover:border-danger hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  :aria-label="`Eliminar ${kit.filename}`"
+                  :disabled="Boolean(deleting) || savingEdit"
+                  @click="requestDelete(kit)"
+                >
+                  <component
+                    :is="TrashIcon"
+                    :size="15"
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
             </div>
 
             <div

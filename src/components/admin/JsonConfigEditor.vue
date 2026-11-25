@@ -1,7 +1,10 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
-import { resolveIcon } from '../../config/icons.registry.js'
+import {
+  AVAILABLE_ICON_NAMES,
+  resolveIcon,
+} from '../../config/icons.registry.js'
 import { fetchConfig } from '../../core/adapters/catalogAdapter.js'
 import { saveConfigJson } from '../../core/adapters/adminStorageAdapter.js'
 import { formatJsonConfig, inspectJsonConfig } from '../../core/jsonConfig.js'
@@ -34,10 +37,17 @@ const SaveIcon = resolveIcon('Save')
 const CheckIcon = resolveIcon('CheckCircle')
 const AlertIcon = resolveIcon('AlertCircle')
 const RefreshIcon = resolveIcon('RefreshCw')
+const SparklesIcon = resolveIcon('Sparkles')
+const ChevronDownIcon = resolveIcon('ChevronDown')
 
 const activeFile = ref('store.json')
 const saving = ref(false)
 const saveFeedback = ref(null)
+const iconsOpen = ref(true)
+const copiedIcon = ref('')
+const copyError = ref('')
+
+let copyTimer = null
 
 const files = reactive(
   Object.fromEntries(
@@ -187,9 +197,75 @@ function handleEditorKeydown(event) {
   }
 }
 
+function clearCopyTimer() {
+  if (copyTimer === null) return
+
+  clearTimeout(copyTimer)
+  copyTimer = null
+}
+
+function scheduleCopyReset() {
+  clearCopyTimer()
+  copyTimer = setTimeout(() => {
+    copyTimer = null
+    copiedIcon.value = ''
+    copyError.value = ''
+  }, 2400)
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    // Fall through to the legacy path when the Clipboard API is unavailable.
+  }
+
+  try {
+    if (typeof document === 'undefined') return false
+
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.top = '-9999px'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+
+    try {
+      textarea.select()
+      return document.execCommand('copy')
+    } finally {
+      document.body.removeChild(textarea)
+    }
+  } catch {
+    return false
+  }
+}
+
+async function copyIconName(name) {
+  const copied = await copyToClipboard(name)
+
+  clearCopyTimer()
+
+  if (copied) {
+    copiedIcon.value = name
+    copyError.value = ''
+  } else {
+    copiedIcon.value = ''
+    copyError.value = 'No se pudo copiar el nombre.'
+  }
+
+  scheduleCopyReset()
+}
+
 onMounted(() => {
   for (const fileId of FILE_IDS) loadFile(fileId)
 })
+
+onBeforeUnmount(clearCopyTimer)
 </script>
 
 <template>
@@ -219,7 +295,7 @@ onMounted(() => {
     </header>
 
     <div
-      class="admin-tabs flex gap-1 overflow-x-auto border-b border-subtle"
+      class="grid grid-cols-3 gap-1 border-b border-subtle"
       role="group"
       aria-label="Archivo de configuración"
     >
@@ -227,7 +303,7 @@ onMounted(() => {
         v-for="file in CONFIG_FILES"
         :key="file.id"
         type="button"
-        class="relative min-w-[8.5rem] shrink-0 border-b-2 px-3 pb-3 pt-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        class="relative min-w-0 border-b-2 px-2 pb-3 pt-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:px-3"
         :class="
           activeFile === file.id
             ? 'border-accent text-main'
@@ -236,11 +312,13 @@ onMounted(() => {
         :aria-pressed="activeFile === file.id"
         @click="selectFile(file.id)"
       >
-        <span class="flex items-center gap-2">
-          <span class="text-sm font-semibold">{{ file.label }}</span>
+        <span class="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <span class="truncate text-xs font-semibold sm:text-sm">
+            {{ file.label }}
+          </span>
           <span
             v-if="isFileDirty(file.id)"
-            class="size-1.5 rounded-full bg-accent"
+            class="size-1.5 shrink-0 rounded-full bg-accent"
             aria-label="Cambios sin guardar"
           />
         </span>
@@ -249,6 +327,108 @@ onMounted(() => {
         </span>
       </button>
     </div>
+
+    <section
+      class="rounded-xl border border-subtle bg-base shadow-soft"
+      aria-labelledby="available-icons-heading"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+        <button
+          type="button"
+          class="flex min-w-0 items-center gap-2 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          :aria-expanded="iconsOpen"
+          :aria-controls="iconsOpen ? 'available-icons-panel' : undefined"
+          @click="iconsOpen = !iconsOpen"
+        >
+          <component
+            :is="SparklesIcon"
+            :size="15"
+            class="shrink-0 text-accent"
+            aria-hidden="true"
+          />
+          <span
+            id="available-icons-heading"
+            class="min-w-0 text-xs font-semibold text-main"
+          >
+            Iconos disponibles
+            <span class="font-mono text-[10px] font-normal text-muted">
+              ({{ AVAILABLE_ICON_NAMES.length }})
+            </span>
+          </span>
+          <component
+            :is="ChevronDownIcon"
+            :size="14"
+            class="shrink-0 text-muted transition-transform"
+            :class="iconsOpen ? 'rotate-180' : ''"
+            aria-hidden="true"
+          />
+        </button>
+
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <span
+            v-if="copiedIcon"
+            role="status"
+            class="inline-flex min-w-0 items-center gap-1 rounded-full border border-success bg-success-soft px-2 py-0.5 text-[10px] font-semibold text-success"
+          >
+            <component :is="CheckIcon" :size="11" aria-hidden="true" />
+            Copiado
+            <span class="truncate font-mono">{{ copiedIcon }}</span>
+          </span>
+          <span
+            v-else-if="copyError"
+            role="alert"
+            class="text-[10px] font-semibold text-danger"
+          >
+            {{ copyError }}
+          </span>
+          <span class="hidden text-[10px] text-muted sm:inline">
+            Elige un icono para copiar su nombre
+          </span>
+        </div>
+      </div>
+
+      <div
+        v-if="iconsOpen"
+        id="available-icons-panel"
+        class="border-t border-subtle px-3 py-3"
+      >
+        <div
+          class="grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-3 xl:grid-cols-4"
+        >
+          <button
+            v-for="name in AVAILABLE_ICON_NAMES"
+            :key="name"
+            type="button"
+            class="flex min-h-10 min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            :class="
+              copiedIcon === name
+                ? 'border-success bg-success-soft text-success'
+                : 'border-subtle bg-surface text-main hover:border-accent hover:bg-accent/5'
+            "
+            :aria-label="`Copiar icono ${name}`"
+            @click="copyIconName(name)"
+          >
+            <component
+              :is="resolveIcon(name)"
+              :size="15"
+              class="shrink-0"
+              :class="copiedIcon === name ? 'text-success' : 'text-accent'"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate font-mono text-[11px]">
+              {{ name }}
+            </span>
+            <component
+              v-if="copiedIcon === name"
+              :is="CheckIcon"
+              :size="12"
+              class="shrink-0 text-success"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      </div>
+    </section>
 
     <div
       v-if="activeEntry.loading && !activeEntry.loaded"
@@ -424,14 +604,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.admin-tabs {
-  scrollbar-width: none;
-}
-
-.admin-tabs::-webkit-scrollbar {
-  display: none;
-}
-
 .editor-input {
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;

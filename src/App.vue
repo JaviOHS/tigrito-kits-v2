@@ -422,6 +422,7 @@ const AdminIcon = resolveIcon('Lock')
         v-if="isAdminOpen"
         :open="isAdminOpen"
         :kits="allKits"
+        :store="storeData"
         @close="closeAdmin"
         @refresh="handleAdminRefresh"
       />

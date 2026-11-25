@@ -5,6 +5,7 @@ import { createAdminStorageAdapter } from '../src/core/adapters/adminStorageAdap
 import { useAdminAuth } from '../src/composables/useAdminAuth.js'
 
 const VALID_FILENAME = 'CLUB_BARCELONA-SC_2026_LOCAL_CAMISETA.webp'
+const RENAMED_FILENAME = 'CLUB_BARCELONA-SC_2026_VISITA_CAMISETA.webp'
 
 function createFakeClient(overrides = {}) {
   const calls = {
@@ -13,6 +14,8 @@ function createFakeClient(overrides = {}) {
     getSession: 0,
     upload: [],
     remove: [],
+    move: [],
+    list: [],
     authListeners: [],
     bucket: '',
   }
@@ -83,6 +86,21 @@ function createFakeClient(overrides = {}) {
                 error: null,
               }
             )
+          },
+          async move(fromPath, toPath) {
+            calls.move.push({ fromPath, toPath })
+
+            return (
+              overrides.move ?? {
+                data: { message: 'Successfully moved' },
+                error: null,
+              }
+            )
+          },
+          async list(path, options) {
+            calls.list.push({ path, options })
+
+            return overrides.list ?? { data: [], error: null }
           },
         }
       },
@@ -219,6 +237,173 @@ test('deleteCatalogImage removes the catalog path', async () => {
 
   assert.deepEqual(fake.calls.remove, [[`catalog/${VALID_FILENAME}`]])
   assert.deepEqual(result, [{ name: `catalog/${VALID_FILENAME}` }])
+})
+
+test('updateCatalogItem rejects invalid filenames before any network call', async () => {
+  const { adapter, fake } = createAdapter()
+
+  await assert.rejects(
+    () =>
+      adapter.updateCatalogItem({
+        oldFilename: VALID_FILENAME,
+        newFilename: 'CLUB_BARCELONA_2026_CAMISETA.webp',
+      }),
+    /Invalid catalog filename/,
+  )
+
+  assert.equal(fake.calls.list.length, 0)
+  assert.equal(fake.calls.move.length, 0)
+  assert.equal(fake.calls.upload.length, 0)
+})
+
+test('updateCatalogItem moves a renamed file without re-uploading it', async () => {
+  const { adapter, fake } = createAdapter()
+
+  const result = await adapter.updateCatalogItem({
+    oldFilename: VALID_FILENAME,
+    newFilename: RENAMED_FILENAME,
+  })
+
+  assert.deepEqual(fake.calls.list, [
+    {
+      path: 'catalog',
+      options: { search: RENAMED_FILENAME, limit: 100 },
+    },
+  ])
+  assert.deepEqual(fake.calls.move, [
+    {
+      fromPath: `catalog/${VALID_FILENAME}`,
+      toPath: `catalog/${RENAMED_FILENAME}`,
+    },
+  ])
+  assert.equal(fake.calls.upload.length, 0)
+  assert.equal(fake.calls.remove.length, 0)
+  assert.deepEqual(result, {
+    filename: RENAMED_FILENAME,
+    previousFilename: VALID_FILENAME,
+    renamed: true,
+    replaced: false,
+    moved: { message: 'Successfully moved' },
+  })
+})
+
+test('updateCatalogItem blocks a rename when the destination already exists', async () => {
+  const { adapter, fake } = createAdapter({
+    list: { data: [{ name: RENAMED_FILENAME }], error: null },
+  })
+
+  await assert.rejects(
+    () =>
+      adapter.updateCatalogItem({
+        oldFilename: VALID_FILENAME,
+        newFilename: RENAMED_FILENAME,
+      }),
+    /already exists\. Confirm the overwrite/,
+  )
+
+  assert.equal(fake.calls.move.length, 0)
+})
+
+test('updateCatalogItem allows a confirmed overwrite move', async () => {
+  const { adapter, fake } = createAdapter({
+    list: { data: [{ name: RENAMED_FILENAME }], error: null },
+  })
+
+  await adapter.updateCatalogItem({
+    oldFilename: VALID_FILENAME,
+    newFilename: RENAMED_FILENAME,
+    overwrite: true,
+  })
+
+  assert.equal(fake.calls.list.length, 0)
+  assert.deepEqual(fake.calls.move, [
+    {
+      fromPath: `catalog/${VALID_FILENAME}`,
+      toPath: `catalog/${RENAMED_FILENAME}`,
+    },
+  ])
+})
+
+test('updateCatalogItem replaces a photo in place with upsert', async () => {
+  const { adapter, fake } = createAdapter()
+  const image = new Blob(['new-bytes'], { type: 'image/png' })
+
+  const result = await adapter.updateCatalogItem({
+    oldFilename: VALID_FILENAME,
+    newFilename: VALID_FILENAME,
+    newWebpBlob: image,
+  })
+
+  const [{ path, body, options }] = fake.calls.upload
+
+  assert.equal(path, `catalog/${VALID_FILENAME}`)
+  assert.equal(body.type, 'image/webp')
+  assert.equal(await body.text(), 'new-bytes')
+  assert.deepEqual(options, {
+    contentType: 'image/webp',
+    cacheControl: '0',
+    upsert: true,
+  })
+  assert.equal(fake.calls.move.length, 0)
+  assert.equal(fake.calls.remove.length, 0)
+  assert.equal(result.renamed, false)
+  assert.equal(result.replaced, true)
+})
+
+test('updateCatalogItem uploads a renamed replacement then removes the old file', async () => {
+  const { adapter, fake } = createAdapter()
+  const image = new Blob(['new-bytes'], { type: 'image/webp' })
+
+  const result = await adapter.updateCatalogItem({
+    oldFilename: VALID_FILENAME,
+    newFilename: RENAMED_FILENAME,
+    newWebpBlob: image,
+  })
+
+  const [{ path, options }] = fake.calls.upload
+
+  assert.equal(path, `catalog/${RENAMED_FILENAME}`)
+  assert.deepEqual(options, {
+    contentType: 'image/webp',
+    cacheControl: '0',
+    upsert: false,
+  })
+  assert.deepEqual(fake.calls.remove, [[`catalog/${VALID_FILENAME}`]])
+  assert.equal(fake.calls.move.length, 0)
+  assert.equal(result.renamed, true)
+  assert.equal(result.replaced, true)
+})
+
+test('updateCatalogItem reports cleanup failures after uploading the new file', async () => {
+  const { adapter } = createAdapter({
+    remove: { data: null, error: new Error('permission denied') },
+  })
+
+  await assert.rejects(
+    () =>
+      adapter.updateCatalogItem({
+        oldFilename: VALID_FILENAME,
+        newFilename: RENAMED_FILENAME,
+        newWebpBlob: new Blob(['new-bytes'], { type: 'image/webp' }),
+      }),
+    /was uploaded, but the previous file .* could not be removed: permission denied/,
+  )
+})
+
+test('updateCatalogItem requires a new photo or filename for a no-op edit', async () => {
+  const { adapter, fake } = createAdapter()
+
+  await assert.rejects(
+    () =>
+      adapter.updateCatalogItem({
+        oldFilename: VALID_FILENAME,
+        newFilename: VALID_FILENAME,
+      }),
+    /Provide a new photo or change the catalog filename/,
+  )
+
+  assert.equal(fake.calls.upload.length, 0)
+  assert.equal(fake.calls.move.length, 0)
 })
 
 test('auth methods adapt Supabase responses and credentials', async () => {

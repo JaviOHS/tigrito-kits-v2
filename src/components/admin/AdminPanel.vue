@@ -17,6 +17,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  store: {
+    type: Object,
+    default: () => ({}),
+  },
 })
 
 const emit = defineEmits(['close', 'refresh'])
@@ -233,6 +237,7 @@ watch(isAuthenticated, (authenticated) => {
         <CatalogUploader
           v-else
           :kits="kits"
+          :store="store"
           @changed="handleChanged"
         />
       </section>

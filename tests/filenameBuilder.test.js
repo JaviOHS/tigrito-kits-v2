@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
-  GARMENT_OPTIONS,
   buildCatalogFilename,
   validateCatalogFilename,
 } from '../src/core/filenameBuilder.js'
@@ -32,8 +31,6 @@ test('builds uppercase ASCII filenames from accented Spanish input', () => {
 })
 
 test('builds and validates MARCA category filenames with JOGGER', () => {
-  assert.ok(GARMENT_OPTIONS.includes('JOGGER'))
-
   assert.equal(
     buildCatalogFilename({
       category: 'MARCA',
