@@ -143,7 +143,7 @@ watch(isAuthenticated, (authenticated) => {
       class="grid min-h-[32rem] lg:grid-cols-[15rem_minmax(0,1fr)]"
     >
       <aside
-        class="admin-rail flex flex-col border-b border-subtle p-4 sm:p-5 lg:border-b-0 lg:border-r"
+        class="flex flex-col border-b border-subtle bg-surface p-4 sm:p-5 lg:border-b-0 lg:border-r"
       >
         <div class="hidden lg:block">
           <p
@@ -194,7 +194,7 @@ watch(isAuthenticated, (authenticated) => {
         </nav>
 
         <div
-          class="mt-4 flex w-full items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-4 md:mt-6 md:flex-col md:items-stretch md:gap-3 md:p-3.5 lg:sticky lg:bottom-0 lg:z-10 lg:mt-auto lg:bg-base"
+          class="mt-4 flex w-full items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-4 md:mt-6 md:flex-col md:items-stretch md:gap-3 md:p-3.5 lg:sticky lg:bottom-0 lg:z-10 lg:mt-auto lg:bg-surface"
         >
           <div class="flex min-w-0 items-center gap-2.5">
             <span
@@ -244,13 +244,3 @@ watch(isAuthenticated, (authenticated) => {
     </div>
   </ModalShell>
 </template>
-
-<style scoped>
-.admin-rail {
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--border-subtle) 65%, transparent) 0.75px,
-    transparent 0.75px
-  );
-  background-size: 12px 12px;
-}
-</style>

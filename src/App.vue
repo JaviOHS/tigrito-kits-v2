@@ -8,9 +8,9 @@ import {
 } from 'vue'
 
 import AppHeader from './components/AppHeader.vue'
+import CatalogGrid from './components/CatalogGrid.vue'
 import FilterBar from './components/FilterBar.vue'
 import InfoModal from './components/InfoModal.vue'
-import KitBoxCard from './components/KitBoxCard.vue'
 import KitDetailModal from './components/KitDetailModal.vue'
 import NotificationsModal from './components/NotificationsModal.vue'
 import ScrollTopButton from './components/ScrollTopButton.vue'
@@ -314,18 +314,12 @@ const AdminIcon = resolveIcon('Lock')
             @reset="resetFilters"
           />
 
-          <div
+          <CatalogGrid
             v-if="filteredKits.length"
-            class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4"
-          >
-            <KitBoxCard
-              v-for="kit in visibleKits"
-              :key="kit.id"
-              :kit="kit"
-              :store="storeData"
-              @select="openKitDetail"
-            />
-          </div>
+            :kits="visibleKits"
+            :store="storeData"
+            @select="openKitDetail"
+          />
 
           <div
             v-else

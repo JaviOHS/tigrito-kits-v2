@@ -38,7 +38,9 @@ Tigrito KitLab es una tienda-catálogo de camisetas y ropa deportiva construida 
 ## Características
 
 - **Catálogo dinámico** desde Supabase Storage: lista de archivos WebP, parseo del nombre y URLs públicas.
+- **Transiciones de catálogo** con `TransitionGroup`: entrada, salida y reordenamiento suaves, desactivadas con `prefers-reduced-motion`.
 - **Filtros en memoria** por categoría, equipo, prenda, retro y búsqueda por equipo/temporada.
+- **Controles unificados** para filtros, orden y constructor de archivos: `BaseCombobox` cubre búsqueda, selección fija y modo táctil con el mismo estilo y comportamiento de teclado.
 - **Orden comercial** con modos `Recomendados`, `Más recientes` y `Menor precio`.
 - **Jerarquía recomendada**: temporada reciente → equipos prioritarios → prendas → variantes.
 - **Precios declarativos** por prenda, con `overrides` por equipo/archivo y precios tachados cuando hay descuento.
@@ -275,6 +277,8 @@ Filtros disponibles:
 - **Solo Retro**: activa `isRetro`.
 - **Búsqueda**: por equipo o temporada.
 
+Todos los desplegables usan `BaseCombobox` en modo selección (`allowCustom="false"`): el filtro de equipo permite escribir para buscar, mientras que prenda y orden funcionan como selects táctiles. Las opciones `Todos los equipos` y `Todas las prendas` actúan como reset.
+
 Modos de orden:
 
 | Modo | Criterio |
@@ -304,7 +308,7 @@ Abre `/#admin`. El acceso requiere un usuario de Supabase Auth.
 
 - Subida de imágenes con optimización local: lado máximo de **1400 px**, WebP con calidad **0.82**.
 - Constructor de nombre con vista previa de los cinco segmentos y advertencia de sobrescritura.
-- Combobox táctil para equipo, variante y prenda; las sugerencias salen del catálogo y de `store.json`.
+- Categoría como select táctil y combobox para equipo, variante y prenda; los cinco campos comparten el mismo estilo, foco y altura táctil. Las sugerencias salen del catálogo y de `store.json`.
 - Edición de metadatos con movimiento del objeto en Storage.
 - Reemplazo opcional de la imagen durante la edición.
 - Eliminación de imágenes del catálogo.
@@ -347,16 +351,18 @@ Estructura del proyecto:
 ├── src/
 │   ├── assets/
 │   │   ├── json/               # Ejemplos locales de configuración (ignorados por Git)
-│   │   └── styles/             # Tailwind + temas semánticos
+│   │   └── styles/             # Tailwind, temas semánticos y transiciones
 │   ├── components/
 │   │   ├── admin/              # Login, panel, uploader y editor JSON
-│   │   ├── BaseCombobox.vue    # Combobox táctil reutilizable
+│   │   ├── BaseCombobox.vue    # Combobox y select unificado
+│   │   ├── CatalogGrid.vue     # Grilla animada con TransitionGroup
 │   │   ├── FilterBar.vue       # Filtros, orden y contador
 │   │   └── ...
 │   ├── composables/            # useCatalog, useAdminAuth, useTheme
 │   ├── config/
 │   │   ├── filters.config.js   # Reglas declarativas de filtros y orden
-│   │   └── icons.registry.js   # Registro tree-shaken de iconos
+│   │   ├── icons.registry.js   # Registro tree-shaken de iconos
+│   │   └── ui.config.js        # Clases compartidas de controles
 │   ├── core/
 │   │   ├── adapters/           # Límites de datos
 │   │   ├── domain/             # Lógica pura, p. ej. catalogSorter
@@ -374,12 +380,17 @@ Decisiones clave:
 - **Open/Closed para filtros**: nuevas reglas `select`, `toggle` o `search` se agregan en `filters.config.js`; el motor no cambia.
 - **Orden puro y testeable**: `src/core/domain/catalogSorter.js` no depende de Vue ni del DOM.
 - **Configuración como datos**: precios, equipos prioritarios, textos y contenido informativo salen de `store.json`.
+- **Controles unificados**: `FIELD_CONTROL_CLASS` centraliza borde, superficie, foco y altura táctil; `BaseCombobox` alterna entre edición libre, búsqueda y selección fija sin `<select>` nativo.
 - **Iconos centralizados**: `resolveIcon()` evita importar todo Lucide y permite nombres dinámicos desde JSON.
 
 ## Diseño y temas
 
 - Estética editorial/táctil con superficies suaves, bordes sutiles y acento cálido.
-- Tokens semánticos en `src/assets/styles/themes.css`: `--bg-base`, `--bg-surface`, `--bg-glass`, `--border-subtle`, `--accent-primary`, `--text-main`, `--text-muted`, etc.
+- Tarjetas con borde neutro sutil en hover y anillo `focus-visible` reservado para navegación por teclado; sin bordes naranjas persistentes tras click o tap.
+- Controles de formulario unificados: `FIELD_CONTROL_CLASS` en `src/config/ui.config.js` define borde, superficie, anillo de foco y `min-h-[42px]`; `BaseCombobox` aplica el mismo lenguaje a filtros, orden y campos del taller.
+- Desplegables sin `<select>` nativo: listbox accesible con `role="combobox"`, `aria-expanded`, `aria-activedescendant`, flechas, `Enter`, `Escape` y cierre al tocar fuera.
+- Movimiento discreto y funcional: la grilla anima entrada, salida y reordenamiento sin desplazar el layout.
+- Tokens semánticos en `src/assets/styles/themes.css`: `--bg-base`, `--bg-surface`, `--bg-glass`, `--border-subtle`, `--border-strong`, `--accent-primary`, `--text-main`, `--text-muted`, etc.
 - Temas `paper-light` y `slate-dark`, persistidos en `localStorage` y aplicados con `data-theme`.
 - Tipografía: **Plus Jakarta Sans** para títulos y **Inter** para texto.
 - Componentes accesibles: estados `aria-pressed`/`aria-expanded`, foco visible, etiquetas `sr-only` y objetivos táctiles cómodos.
@@ -389,6 +400,7 @@ Decisiones clave:
 
 - Filtrado y orden en memoria; sin peticiones por cada cambio de filtro.
 - Render por lotes de **12** kits y `loading="lazy"` en imágenes.
+- Transiciones CSS sobre `opacity` y `transform` (aceleradas por GPU) con `TransitionGroup`; se desactivan si el usuario prefiere movimiento reducido.
 - Iconos importados de forma nombrada y resueltos desde un registro central.
 - El panel de administración y el SDK de Supabase se cargan en un chunk aparte.
 - Las configuraciones se piden con `cache: 'no-store'` y parámetro de tiempo para evitar datos viejos.
@@ -422,6 +434,8 @@ npm test
 
 ## Últimas actualizaciones
 
+- **Sistema unificado de combobox y select (spec 14):** `BaseCombobox` admite búsqueda, selección fija y modo no editable; los filtros de equipo, prenda y orden, además de la categoría del taller, comparten estilos y eliminan los `<select>` nativos.
+- **Transiciones y foco de tarjetas (spec 13):** grilla animada con `TransitionGroup` (`opacity` + `translateY` + movimiento FLIP), hover con borde neutro sutil y anillo de foco visible solo con teclado.
 - **Orden inteligente y filtro de prendas (spec 12):** orden comercial por temporada, `priorityTeams`, prendas y variantes; selector `Recomendados / Más recientes / Menor precio`; filtro dinámico de prendas.
 - **Admin dinámico (spec 11):** combobox táctil reutilizable para equipo, variante y prenda; opciones derivadas del catálogo y de `store.json`; selector de iconos con copia al portapapeles.
 - **Edición de catálogo (spec 10):** edición de metadatos, movimiento de objetos en Storage y reemplazo opcional de imagen.
@@ -445,3 +459,4 @@ No hay rutas del servidor ni fallback SPA especial: el panel se abre con el hash
 - `docs/specs/`: especificaciones funcionales y criterios de aceptación, en orden de implementación.
 - `src/config/filters.config.js`: definición declarativa de filtros y modos de orden.
 - `src/config/icons.registry.js`: iconos disponibles para la UI y los JSON.
+- `src/config/ui.config.js`: clases compartidas de controles (`FIELD_CONTROL_CLASS`).

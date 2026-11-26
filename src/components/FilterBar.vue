@@ -1,5 +1,7 @@
 <script setup>
+import BaseCombobox from './BaseCombobox.vue'
 import { resolveIcon } from '../config/icons.registry.js'
+import { FIELD_CONTROL_CLASS } from '../config/ui.config.js'
 
 const props = defineProps({
   filters: {
@@ -50,6 +52,8 @@ const activePillClass =
   'border-accent bg-accent text-accent-contrast shadow-soft'
 const idlePillClass =
   'border-subtle bg-base text-muted hover:border-accent hover:text-main'
+const compactSortInputClass =
+  'w-full min-w-[9.5rem] min-h-[42px] rounded-full border-0 bg-transparent py-0 pl-1 text-xs font-semibold text-main shadow-none outline-none transition-colors focus-visible:outline-none'
 
 function changeFilter(key, value) {
   emit('filter-change', key, value)
@@ -110,87 +114,56 @@ function changeFilter(key, value) {
         <span>{{ retroLabel }}</span>
       </button>
 
-      <label
-        class="ml-auto inline-flex min-w-0 items-center gap-1.5 rounded-full border border-subtle bg-base py-1 pl-3 pr-1.5 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+      <div
+        class="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full border border-subtle bg-base pl-3 pr-1.5 transition-colors hover:border-accent focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
       >
         <span class="shrink-0 text-[11px] font-semibold text-muted">
           Ordenar
         </span>
-        <span class="relative flex min-w-0">
-          <select
-            :value="filters.sort"
-            aria-label="Ordenar catálogo"
-            class="w-full appearance-none rounded-full bg-transparent py-1 pl-1 pr-6 text-xs font-semibold text-main focus:outline-none"
-            @change="changeFilter('sort', $event.target.value)"
-          >
-            <option
-              v-for="option in sortOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-          <component
-            :is="resolveIcon('ChevronDown')"
-            :size="13"
-            aria-hidden="true"
-            class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-muted"
-          />
-        </span>
-      </label>
+        <BaseCombobox
+          id="sort-filter"
+          :model-value="filters.sort"
+          :options="sortOptions"
+          :allow-custom="false"
+          :searchable="false"
+          :show-option-value="false"
+          :input-class="compactSortInputClass"
+          aria-label="Ordenar catálogo"
+          @update:model-value="changeFilter('sort', $event)"
+        />
+      </div>
     </div>
 
     <div
       class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[14rem_13rem_minmax(0,1fr)_auto] lg:items-center"
     >
-      <div class="relative">
+      <div>
         <label for="team-filter" class="sr-only">Filtrar por equipo</label>
-        <select
+        <BaseCombobox
           id="team-filter"
-          :value="filters.team"
-          class="w-full appearance-none rounded-xl border border-subtle bg-base py-2.5 pl-3 pr-9 text-sm text-main transition-colors hover:border-accent focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-          @change="changeFilter('team', $event.target.value)"
-        >
-          <option
-            v-for="option in teamOptions"
-            :key="option.value"
-            :value="option.value"
-          >
-            {{ option.label }}
-          </option>
-        </select>
-        <component
-          :is="resolveIcon('ChevronDown')"
-          :size="16"
-          aria-hidden="true"
-          class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+          :model-value="filters.team"
+          :options="teamOptions"
+          :allow-custom="false"
+          :searchable="true"
+          :show-option-value="false"
+          placeholder="Todos los equipos"
+          @update:model-value="changeFilter('team', $event)"
         />
       </div>
 
-      <div class="relative">
+      <div>
         <label for="garment-filter" class="sr-only">
           Filtrar por prenda
         </label>
-        <select
+        <BaseCombobox
           id="garment-filter"
-          :value="filters.garment"
-          class="w-full appearance-none rounded-xl border border-subtle bg-base py-2.5 pl-3 pr-9 text-sm text-main transition-colors hover:border-accent focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
-          @change="changeFilter('garment', $event.target.value)"
-        >
-          <option
-            v-for="option in garmentOptions"
-            :key="option.value"
-            :value="option.value"
-          >
-            {{ option.label }}
-          </option>
-        </select>
-        <component
-          :is="resolveIcon('ChevronDown')"
-          :size="16"
-          aria-hidden="true"
-          class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+          :model-value="filters.garment"
+          :options="garmentOptions"
+          :allow-custom="false"
+          :searchable="false"
+          :show-option-value="false"
+          placeholder="Todas las prendas"
+          @update:model-value="changeFilter('garment', $event)"
         />
       </div>
 
@@ -210,7 +183,7 @@ function changeFilter(key, value) {
           type="search"
           :placeholder="searchPlaceholder"
           autocomplete="off"
-          class="w-full rounded-xl border border-subtle bg-base py-2.5 pl-9 pr-9 text-sm text-main transition-colors placeholder:text-muted hover:border-accent focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+          :class="[FIELD_CONTROL_CLASS, 'pl-9 pr-9']"
           @input="changeFilter('search', $event.target.value)"
         />
         <button

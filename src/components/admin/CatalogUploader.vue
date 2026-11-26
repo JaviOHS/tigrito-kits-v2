@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 
 import { resolveIcon } from '../../config/icons.registry.js'
+import { FIELD_CONTROL_CLASS } from '../../config/ui.config.js'
 import {
   deleteCatalogImage,
   updateCatalogItem,
@@ -53,7 +54,6 @@ const TrashIcon = resolveIcon('Trash2')
 const AlertIcon = resolveIcon('AlertCircle')
 const SearchIcon = resolveIcon('Search')
 const ShirtIcon = resolveIcon('Shirt')
-const ChevronDownIcon = resolveIcon('ChevronDown')
 const XIcon = resolveIcon('X')
 
 const fileInput = ref(null)
@@ -91,8 +91,7 @@ const deletedFilenames = ref([])
 
 let optimizeToken = 0
 
-const fieldClass =
-  'w-full rounded-xl border border-subtle bg-base px-3 py-2 text-sm text-main shadow-soft outline-none transition-colors placeholder:text-muted focus:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+const fieldClass = FIELD_CONTROL_CLASS
 
 const teamOptions = computed(() => buildTeamOptions(props.kits))
 const variantOptions = computed(() => buildVariantOptions(props.kits))
@@ -807,29 +806,23 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="text-xs font-semibold text-main">Categoría</span>
-              <span class="relative mt-1.5 block">
-                <select
-                  v-model="form.category"
-                  :class="[fieldClass, 'appearance-none pr-8']"
-                >
-                  <option
-                    v-for="option in CATEGORY_OPTIONS"
-                    :key="option.value"
-                    :value="option.value"
-                  >
-                    {{ option.label }}
-                  </option>
-                </select>
-                <component
-                  :is="ChevronDownIcon"
-                  :size="14"
-                  class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-                  aria-hidden="true"
-                />
-              </span>
-            </label>
+            <div class="block">
+              <label
+                for="admin-category"
+                class="block text-xs font-semibold text-main"
+              >
+                Categoría
+              </label>
+              <BaseCombobox
+                id="admin-category"
+                v-model="form.category"
+                :options="CATEGORY_OPTIONS"
+                :allow-custom="false"
+                :searchable="false"
+                :show-option-value="false"
+                class="mt-1.5"
+              />
+            </div>
 
             <label class="block">
               <span class="text-xs font-semibold text-main">Temporada</span>
@@ -853,7 +846,6 @@ onBeforeUnmount(() => {
                 v-model="form.team"
                 :options="teamOptions"
                 :placeholder="teamPlaceholder"
-                :input-class="fieldClass"
                 class="mt-1.5"
               />
               <span class="mt-1 block text-[11px] text-muted">
@@ -878,7 +870,6 @@ onBeforeUnmount(() => {
                 v-model="form.variant"
                 :options="variantOptions"
                 placeholder="LOCAL"
-                :input-class="fieldClass"
                 class="mt-1.5"
               />
             </div>
@@ -895,7 +886,6 @@ onBeforeUnmount(() => {
                 v-model="form.garment"
                 :options="garmentOptions"
                 placeholder="CAMISETA"
-                :input-class="fieldClass"
                 class="mt-1.5"
               />
             </div>

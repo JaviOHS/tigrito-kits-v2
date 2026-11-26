@@ -1,0 +1,76 @@
+/**
+ * Catalog grid transitions.
+ *
+ * `TransitionGroup` applies these classes to individual cards. The grid keeps
+ * its responsive columns through CSS variables so leaving cards can be taken
+ * out of flow without collapsing to an arbitrary width.
+ */
+.kit-grid {
+  --kit-grid-columns: 2;
+  --kit-grid-gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .kit-grid {
+    --kit-grid-gap: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .kit-grid {
+    --kit-grid-columns: 3;
+  }
+}
+
+@media (min-width: 1280px) {
+  .kit-grid {
+    --kit-grid-columns: 4;
+  }
+}
+
+.kit-grid-enter-active,
+.kit-grid-leave-active {
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
+  will-change: opacity, transform;
+}
+
+.kit-grid-enter-from,
+.kit-grid-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.kit-grid-move {
+  transition: transform 240ms ease;
+}
+
+/* Remove leaving cards from layout flow so the remaining cards can FLIP. */
+.kit-grid-leave-active {
+  position: absolute;
+  pointer-events: none;
+  width: calc(
+    (100% - (var(--kit-grid-columns) - 1) * var(--kit-grid-gap)) /
+      var(--kit-grid-columns)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kit-grid-enter-active,
+  .kit-grid-leave-active,
+  .kit-grid-move {
+    transition: none;
+  }
+
+  .kit-grid-enter-from,
+  .kit-grid-leave-to {
+    opacity: 1;
+    transform: none;
+  }
+
+  .kit-grid-leave-active {
+    position: static;
+    width: auto;
+  }
+}

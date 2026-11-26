@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./themes.css";
+@import "./transitions.css";
 
 /* Tailwind's dark: variant follows the active data-theme, not the OS alone. */
 @custom-variant dark (&:where([data-theme="slate-dark"], [data-theme="slate-dark"] *));

@@ -72,7 +72,7 @@ function orderUrl(kit) {
         <p class="hidden text-xs text-muted sm:block">Desliza para explorar</p>
         <button
           type="button"
-          class="inline-flex size-8 items-center justify-center rounded-full border border-subtle bg-surface text-main shadow-soft transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:size-9"
+          class="inline-flex size-8 items-center justify-center rounded-full border border-subtle bg-surface text-main shadow-soft transition-colors hover:border-[var(--border-strong)] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:size-9"
           aria-label="Ver destacados anteriores"
           @click="scrollCarousel(-1)"
         >
@@ -80,7 +80,7 @@ function orderUrl(kit) {
         </button>
         <button
           type="button"
-          class="inline-flex size-8 items-center justify-center rounded-full border border-subtle bg-surface text-main shadow-soft transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:size-9"
+          class="inline-flex size-8 items-center justify-center rounded-full border border-subtle bg-surface text-main shadow-soft transition-colors hover:border-[var(--border-strong)] hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:size-9"
           aria-label="Ver más destacados"
           @click="scrollCarousel(1)"
         >
@@ -96,7 +96,7 @@ function orderUrl(kit) {
       <article
         v-for="{ kit, pricing } in pricedKits"
         :key="kit.id"
-        class="relative w-[210px] min-w-[210px] shrink-0 snap-start overflow-hidden rounded-xl border border-accent/40 bg-surface shadow-soft transition-colors hover:border-accent/70 sm:w-[245px] sm:min-w-[245px]"
+        class="relative w-[210px] min-w-[210px] shrink-0 snap-start overflow-hidden rounded-xl border border-subtle bg-surface shadow-soft transition-all duration-200 hover:border-[var(--border-strong)] motion-reduce:transition-none sm:w-[245px] sm:min-w-[245px]"
       >
         <span
           class="absolute left-2 top-2 z-20 rounded-full bg-accent px-2 py-0.5 text-[0.6rem] font-bold tracking-[0.16em] text-accent-contrast"
@@ -106,7 +106,7 @@ function orderUrl(kit) {
 
         <button
           type="button"
-          class="absolute inset-0 z-10 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+          class="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-accent/60"
           :aria-label="`Ver detalles de ${kit.team} ${kit.season}`"
           aria-haspopup="dialog"
           @click="emit('select', kit)"

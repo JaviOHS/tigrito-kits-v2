@@ -9,6 +9,7 @@ import {
   watch,
 } from 'vue'
 
+import { FIELD_CONTROL_CLASS } from '../config/ui.config.js'
 import { resolveIcon } from '../config/icons.registry.js'
 
 const props = defineProps({
@@ -32,13 +33,29 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  allowCustom: {
+    type: Boolean,
+    default: true,
+  },
+  searchable: {
+    type: Boolean,
+    default: true,
+  },
+  showOptionValue: {
+    type: Boolean,
+    default: true,
+  },
+  ariaLabel: {
+    type: String,
+    default: '',
+  },
   inputClass: {
     type: [String, Array, Object],
-    default: '',
+    default: FIELD_CONTROL_CLASS,
   },
   emptyText: {
     type: String,
-    default: 'Sin sugerencias. Puedes escribir un valor nuevo.',
+    default: '',
   },
   maxSuggestions: {
     type: Number,
@@ -56,7 +73,7 @@ const list = ref(null)
 const open = ref(false)
 const filterActive = ref(false)
 const activeIndex = ref(-1)
-const inputValue = ref(String(props.modelValue ?? ''))
+const inputValue = ref('')
 
 const generatedId = useId()
 const inputId = computed(() => props.id || `combobox-${generatedId}`)
@@ -98,6 +115,24 @@ const normalizedOptions = computed(() => {
   return result
 })
 
+const currentValue = computed(() => String(props.modelValue ?? ''))
+
+const selectedOption = computed(
+  () =>
+    normalizedOptions.value.find(
+      (option) => option.value === currentValue.value,
+    ) ?? null,
+)
+
+/**
+ * Editable comboboxes display the raw value (admin taxonomy codes). Selection
+ * dropdowns display the human label ("Todos los equipos", "Recomendados").
+ */
+const displayValue = computed(() => {
+  if (props.allowCustom) return currentValue.value
+  return selectedOption.value?.label ?? currentValue.value
+})
+
 function searchKey(value) {
   return String(value ?? '')
     .normalize('NFD')
@@ -117,7 +152,10 @@ const filteredOptions = computed(() => {
       )
     : normalizedOptions.value
 
-  return source.slice(0, Math.max(1, props.maxSuggestions))
+  // Fixed option lists must stay complete; suggestions stay bounded.
+  return props.allowCustom
+    ? source.slice(0, Math.max(1, props.maxSuggestions))
+    : source
 })
 
 const showList = computed(() => open.value && !props.disabled)
@@ -130,12 +168,21 @@ const activeDescendantId = computed(() =>
     : undefined,
 )
 
+const resolvedEmptyText = computed(
+  () =>
+    props.emptyText ||
+    (props.allowCustom
+      ? 'Sin sugerencias. Puedes escribir un valor nuevo.'
+      : 'Sin coincidencias.'),
+)
+
 watch(
-  () => props.modelValue,
+  displayValue,
   (value) => {
-    const next = String(value ?? '')
-    if (next !== inputValue.value) inputValue.value = next
+    if (filterActive.value) return
+    if (inputValue.value !== value) inputValue.value = value
   },
+  { immediate: true },
 )
 
 watch(filteredOptions, () => {
@@ -160,38 +207,91 @@ function clearBlurTimer() {
   blurTimer = null
 }
 
-function openList() {
+function restoreInput() {
+  inputValue.value = displayValue.value
+}
+
+function openList({ highlightSelected = false } = {}) {
   if (props.disabled) return
 
   clearBlurTimer()
   open.value = true
+
+  if (highlightSelected) {
+    activeIndex.value = filteredOptions.value.findIndex(
+      (option) => option.value === currentValue.value,
+    )
+  }
 }
 
-function closeList() {
+function closeList({ restore = true } = {}) {
   clearBlurTimer()
   open.value = false
   filterActive.value = false
   activeIndex.value = -1
+
+  if (restore) restoreInput()
 }
 
-function handleFocus() {
-  filterActive.value = false
-  openList()
+/**
+ * Selection dropdowns show a label, so typing should replace it instead of
+ * inserting characters into the middle of the label at the caret position.
+ */
+function selectLabelText(event) {
+  if (!props.searchable || props.allowCustom) return
+  event?.target?.select?.()
 }
 
-function handleClick() {
-  if (open.value) return
+function handleFocus(event) {
+  if (props.disabled) return
 
   filterActive.value = false
-  openList()
+  restoreInput()
+  selectLabelText(event)
+  openList({ highlightSelected: true })
+}
+
+function handleClick(event) {
+  if (props.disabled) return
+
+  if (!open.value) {
+    filterActive.value = false
+    restoreInput()
+    openList({ highlightSelected: true })
+  }
+
+  if (!filterActive.value) selectLabelText(event)
 }
 
 function handleInput(event) {
-  inputValue.value = event.target.value
-  emit('update:modelValue', inputValue.value)
+  if (!props.searchable) return
+
+  const raw = event.target.value
+
+  if (props.allowCustom) {
+    inputValue.value = raw
+    emit('update:modelValue', raw)
+    filterActive.value = true
+    openList()
+    activeIndex.value = -1
+    return
+  }
+
+  const label = selectedOption.value?.label ?? ''
+  let query = raw
+
+  if (label && raw.startsWith(label)) {
+    query = raw.slice(label.length)
+  } else if (label && label.startsWith(raw)) {
+    // Deleting the selected label clears the search instead of leaving a
+    // partial label as a query.
+    query = ''
+  }
+
+  inputValue.value = query
   filterActive.value = true
   openList()
-  activeIndex.value = -1
+  activeIndex.value = filteredOptions.value.length ? 0 : -1
 }
 
 function handleKeydown(event) {
@@ -199,7 +299,11 @@ function handleKeydown(event) {
 
   if (event.key === 'ArrowDown') {
     event.preventDefault()
-    if (!open.value) openList()
+    if (!open.value) {
+      filterActive.value = false
+      restoreInput()
+      openList({ highlightSelected: true })
+    }
     if (!filteredOptions.value.length) return
 
     activeIndex.value =
@@ -211,7 +315,11 @@ function handleKeydown(event) {
 
   if (event.key === 'ArrowUp') {
     event.preventDefault()
-    if (!open.value) openList()
+    if (!open.value) {
+      filterActive.value = false
+      restoreInput()
+      openList({ highlightSelected: true })
+    }
     if (!filteredOptions.value.length) return
 
     activeIndex.value =
@@ -222,13 +330,33 @@ function handleKeydown(event) {
   }
 
   if (event.key === 'Enter') {
-    if (!showList.value) return
+    if (!showList.value) {
+      if (!props.searchable) {
+        event.preventDefault()
+        filterActive.value = false
+        restoreInput()
+        openList({ highlightSelected: true })
+      }
+      return
+    }
 
     event.preventDefault()
     if (activeIndex.value >= 0) {
       selectOption(filteredOptions.value[activeIndex.value])
     } else {
       closeList()
+    }
+    return
+  }
+
+  if (event.key === ' ' && !props.searchable) {
+    event.preventDefault()
+    if (!showList.value) {
+      filterActive.value = false
+      restoreInput()
+      openList({ highlightSelected: true })
+    } else if (activeIndex.value >= 0) {
+      selectOption(filteredOptions.value[activeIndex.value])
     }
     return
   }
@@ -244,13 +372,18 @@ function handleKeydown(event) {
   if (event.key === 'Tab') closeList()
 }
 
+function optionDisplayValue(option) {
+  return props.allowCustom ? option.value : option.label
+}
+
 function selectOption(option) {
   if (!option) return
 
   clearBlurTimer()
-  inputValue.value = option.value
+  filterActive.value = false
+  inputValue.value = optionDisplayValue(option)
   emit('update:modelValue', option.value)
-  closeList()
+  closeList({ restore: false })
 }
 
 function handleBlur(event) {
@@ -294,10 +427,17 @@ onBeforeUnmount(() => {
         :value="inputValue"
         :placeholder="placeholder"
         :disabled="disabled"
-        :class="[inputClass, 'pr-9']"
+        :readonly="!searchable"
+        :aria-label="ariaLabel || undefined"
+        :class="[
+          inputClass,
+          'pr-9',
+          !searchable && !disabled ? 'cursor-pointer' : '',
+        ]"
         :aria-expanded="showList"
         :aria-controls="showList ? listboxId : undefined"
-        aria-autocomplete="list"
+        :aria-autocomplete="searchable ? 'list' : undefined"
+        aria-haspopup="listbox"
         :aria-activedescendant="activeDescendantId"
         @focus="handleFocus"
         @click="handleClick"
@@ -319,14 +459,14 @@ onBeforeUnmount(() => {
       :id="listboxId"
       ref="list"
       role="listbox"
-      class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto overscroll-contain rounded-xl border border-subtle bg-surface p-1 shadow-lifted"
+      class="combobox-menu absolute z-30 mt-1 max-h-44 w-full overflow-y-auto overscroll-contain rounded-xl border border-subtle bg-elevated p-1 shadow-lifted"
     >
       <li
         v-if="!filteredOptions.length"
         role="presentation"
-        class="px-3 py-2.5 text-xs leading-5 text-muted"
+        class="px-3 py-2 text-xs leading-5 text-muted"
       >
-        {{ emptyText }}
+        {{ resolvedEmptyText }}
       </li>
 
       <li
@@ -340,8 +480,8 @@ onBeforeUnmount(() => {
           role="option"
           tabindex="-1"
           :data-option-index="index"
-          :aria-selected="option.value === modelValue"
-          class="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors"
+          :aria-selected="option.value === currentValue"
+          class="flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors"
           :class="
             index === activeIndex
               ? 'bg-accent/10 text-main'
@@ -353,14 +493,14 @@ onBeforeUnmount(() => {
           <span class="min-w-0 flex-1">
             <span class="block truncate font-medium">{{ option.label }}</span>
             <span
-              v-if="option.label !== option.value"
+              v-if="showOptionValue && option.label !== option.value"
               class="mt-0.5 block truncate font-mono text-[10px] text-muted"
             >
               {{ option.value }}
             </span>
           </span>
           <component
-            v-if="option.value === modelValue"
+            v-if="option.value === currentValue"
             :is="CheckIcon"
             :size="14"
             class="shrink-0 text-accent"

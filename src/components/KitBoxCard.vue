@@ -68,7 +68,7 @@ function handleCardClick(event) {
 
 <template>
   <article
-    class="flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-subtle bg-surface transition-colors hover:border-accent/50"
+    class="flex h-full cursor-pointer flex-col overflow-hidden rounded-xl border border-subtle bg-surface transition-all duration-200 hover:border-[var(--border-strong)] motion-reduce:transition-none"
     @click="handleCardClick"
   >
     <div class="kit-stage relative aspect-[4/5] overflow-hidden">
@@ -108,7 +108,7 @@ function handleCardClick(event) {
 
       <button
         type="button"
-        class="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+        class="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-accent/60"
         :aria-label="detailLabel"
         aria-haspopup="dialog"
         @click="emit('select', kit)"
