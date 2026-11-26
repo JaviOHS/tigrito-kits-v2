@@ -136,6 +136,7 @@ const FALLBACK_STORE = {
     PANTALONETA: 20,
     JOGGER: 25,
   },
+  priorityTeams: ['Barcelona SC', 'Ecuador', 'Real Madrid'],
   overrides: [
     {
       team: 'Ecuador',

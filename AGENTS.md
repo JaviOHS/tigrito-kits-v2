@@ -30,3 +30,6 @@ Catalog files inside `catalog/` follow a strict 5-segment uppercase ASCII format
 - Avoid heavy third-party UI libraries; use `lucide-vue-next` for icons and pure CSS/Tailwind for transitions.
 - Zero hardcoded business data (WhatsApp number, base price, delivery city "Milagro"[cite: 1]) inside components—read everything from `store.json`.
 - **Strict Icon Tree-Shaking (`src/config/icons.registry.js`):** NEVER use wildcard imports (`import * as Icons from 'lucide-vue-next'`). Import only specific named icons inside a centralized `ICON_REGISTRY` map (with `Bell` as default fallback) so Vite bundles only used SVGs while still supporting dynamic icon names from `notifications.json` and `store.json`.
+
+## 7. Documentation & Release Hygiene
+- Whenever a feature, bugfix, architectural change, or version bump is completed, invoke the `create-readme` skill to keep `README.md` synchronized with the current codebase, project structure, environment setup, JSON configuration schemas (`store.json`, `notifications.json`, `top-picks.json`), and changelog/version history.

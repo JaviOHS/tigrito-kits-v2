@@ -2,10 +2,12 @@ import { computed, reactive, readonly, ref, watch } from 'vue'
 
 import { FILTER_CONFIG } from '../config/filters.config.js'
 import { fetchCatalog, fetchConfig } from '../core/adapters/catalogAdapter.js'
+import { sortCatalogKits } from '../core/domain/catalogSorter.js'
 import {
   applyCatalogFilters,
   normalizeFilterRules,
 } from '../core/filterEngine.js'
+import { formatGarment } from '../core/formatters.js'
 
 export const BATCH_SIZE = 12
 
@@ -77,6 +79,7 @@ export function useCatalog({
 } = {}) {
   const filterRules = normalizeFilterRules(filterConfig)
   const teamRule = filterRules.find((rule) => rule.key === 'team')
+  const garmentRule = filterRules.find((rule) => rule.key === 'garment')
 
   const allKits = ref([])
   const storeConfig = ref(null)
@@ -119,8 +122,33 @@ export function useCatalog({
     ]
   })
 
+  const availableGarments = computed(() => {
+    const garments = new Map()
+
+    for (const kit of allKits.value) {
+      const code = String(kit?.garment ?? '')
+        .trim()
+        .toUpperCase()
+      if (code) garments.set(code, formatGarment(code))
+    }
+
+    return [...garments.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'es'))
+  })
+
+  const garmentOptions = computed(() => {
+    const allValue = garmentRule?.allValue ?? 'ALL'
+    const allLabel = garmentRule?.allLabel ?? 'Todas las prendas'
+
+    return [{ value: allValue, label: allLabel }, ...availableGarments.value]
+  })
+
   const filteredKits = computed(() =>
-    applyCatalogFilters(allKits.value, filters, filterRules),
+    sortCatalogKits(applyCatalogFilters(allKits.value, filters, filterRules), {
+      mode: filters.sort,
+      store: storeConfig.value ?? {},
+    }),
   )
 
   const visibleKits = computed(() =>
@@ -210,10 +238,12 @@ export function useCatalog({
   return {
     BATCH_SIZE: batchSize,
     allKits: readonly(allKits),
+    availableGarments,
     availableTeams,
     error: readonly(error),
     filteredKits,
     filters,
+    garmentOptions,
     hasLoaded: readonly(hasLoaded),
     hasMore,
     isLoading: readonly(isLoading),

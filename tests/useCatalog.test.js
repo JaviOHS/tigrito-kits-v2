@@ -81,7 +81,9 @@ test('every filter change resets pagination to 12 synchronously', async () => {
       category: 'ALL',
       retroOnly: false,
       team: 'ALL',
+      garment: 'ALL',
       search: '',
+      sort: 'recommended',
     },
   )
 })
@@ -108,6 +110,87 @@ test('availableTeams is dynamic, unique, and sorted from allKits', async () => {
   })
   assert.ok(
     catalog.teamOptions.value.some((option) => option.value === 'New Team'),
+  )
+})
+
+test('garmentOptions is dynamic, unique, and includes formatted labels', async () => {
+  const catalog = useCatalog(mockDependencies)
+  await catalog.ready
+
+  const values = catalog.garmentOptions.value.map((option) => option.value)
+  const expected = [
+    ...new Set(FALLBACK_CATALOG.map((kit) => kit.garment)),
+  ].sort()
+
+  assert.equal(values[0], 'ALL')
+  assert.deepEqual([...values.slice(1)].sort(), expected)
+  assert.equal(new Set(values).size, values.length)
+  assert.deepEqual(
+    catalog.garmentOptions.value.find(
+      (option) => option.value === 'IMPERMEABLE',
+    ),
+    { value: 'IMPERMEABLE', label: 'Impermeable' },
+  )
+})
+
+test('garment filter combines with the rest of the filter state', async () => {
+  const catalog = useCatalog(mockDependencies)
+  await catalog.ready
+
+  catalog.setFilter('garment', 'BUZO')
+
+  assert.ok(catalog.filteredKits.value.length > 0)
+  assert.ok(
+    catalog.filteredKits.value.every((kit) => kit.garment === 'BUZO'),
+  )
+
+  catalog.setFilter('garment', 'ALL')
+  assert.equal(catalog.filteredKits.value.length, FALLBACK_CATALOG.length)
+})
+
+test('recommended sorting uses store priorityTeams before unlisted teams', async () => {
+  const catalog = useCatalog(mockDependencies)
+  await catalog.ready
+
+  const sorted = catalog.filteredKits.value
+  const first = sorted[0]
+
+  assert.equal(first.season, '2026')
+  assert.equal(first.team, 'Barcelona SC')
+  assert.equal(first.filename, 'CLUB_BARCELONA-SC_2026_LOCAL_CAMISETA.webp')
+
+  const firstSeasonTeams = sorted
+    .filter((kit) => kit.season === '2026')
+    .map((kit) => kit.team)
+
+  assert.deepEqual(firstSeasonTeams.slice(0, 3), [
+    'Barcelona SC',
+    'Barcelona SC',
+    'Ecuador',
+  ])
+})
+
+test('sort mode reorders kits and resetFilters restores recommended order', async () => {
+  const catalog = useCatalog(mockDependencies)
+  await catalog.ready
+
+  catalog.setFilter('sort', 'newest')
+  assert.equal(catalog.filters.sort, 'newest')
+  assert.equal(catalog.visibleLimit.value, 12)
+  assert.equal(catalog.filteredKits.value[0].team, 'Argentina')
+
+  catalog.setFilter('sort', 'price-asc')
+  assert.equal(catalog.filteredKits.value[0].team, 'Ecuador')
+  assert.equal(catalog.filteredKits.value[0].garment, 'CAMISETA')
+
+  catalog.setFilter('garment', 'IMPERMEABLE')
+  catalog.resetFilters()
+
+  assert.equal(catalog.filters.sort, 'recommended')
+  assert.equal(catalog.filters.garment, 'ALL')
+  assert.equal(
+    catalog.filteredKits.value[0].filename,
+    'CLUB_BARCELONA-SC_2026_LOCAL_CAMISETA.webp',
   )
 })
 

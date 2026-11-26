@@ -16,11 +16,13 @@ function apply(overrides) {
   )
 }
 
-test('defines the requested declarative category and team rules', () => {
+test('defines the requested declarative filter and sort rules', () => {
   const category = FILTER_CONFIG.find((rule) => rule.key === 'category')
   const team = FILTER_CONFIG.find((rule) => rule.key === 'team')
+  const garment = FILTER_CONFIG.find((rule) => rule.key === 'garment')
   const retro = FILTER_CONFIG.find((rule) => rule.key === 'retroOnly')
   const search = FILTER_CONFIG.find((rule) => rule.key === 'search')
+  const sort = FILTER_CONFIG.find((rule) => rule.key === 'sort')
 
   assert.deepEqual(
     category.options.map((option) => option.value),
@@ -33,14 +35,24 @@ test('defines the requested declarative category and team rules', () => {
   assert.equal(category.type, 'select')
   assert.equal(team.optionsSource, 'teams')
   assert.equal(team.allValue, 'ALL')
+  assert.equal(garment.optionsSource, 'garments')
+  assert.equal(garment.allValue, 'ALL')
+  assert.equal(garment.allLabel, 'Todas las prendas')
   assert.equal(retro.type, 'toggle')
   assert.equal(retro.field, 'isRetro')
   assert.deepEqual(search.fields, ['team', 'season'])
+  assert.equal(sort.type, 'sort')
+  assert.deepEqual(
+    sort.options.map((option) => option.value),
+    ['recommended', 'newest', 'price-asc'],
+  )
   assert.deepEqual(DEFAULT_FILTER_STATE, {
     category: 'ALL',
     retroOnly: false,
     team: 'ALL',
+    garment: 'ALL',
     search: '',
+    sort: 'recommended',
   })
 })
 
@@ -81,6 +93,19 @@ test('filters by a dynamically extracted team', () => {
 
   assert.ok(result.length > 0)
   assert.ok(result.every((kit) => kit.team === 'Argentina'))
+})
+
+test('filters by a dynamically extracted garment', () => {
+  const result = apply({ garment: 'BUZO' })
+
+  assert.ok(result.length > 0)
+  assert.ok(result.every((kit) => kit.garment === 'BUZO'))
+})
+
+test('sort state is part of the filter state but never filters items', () => {
+  const result = apply({ sort: 'price-asc' })
+
+  assert.equal(result.length, FALLBACK_CATALOG.length)
 })
 
 test('search matches team or season only', () => {

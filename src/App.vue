@@ -19,6 +19,7 @@ import {
   CATEGORY_FILTER,
   DEFAULT_FILTER_STATE,
   RETRO_FILTER,
+  SORT_OPTIONS,
 } from './config/filters.config.js'
 import { resolveIcon } from './config/icons.registry.js'
 import { useCatalog } from './composables/useCatalog.js'
@@ -33,6 +34,7 @@ const {
   error,
   filteredKits,
   filters,
+  garmentOptions,
   hasLoaded,
   hasMore,
   isLoading,
@@ -301,6 +303,8 @@ const AdminIcon = resolveIcon('Lock')
             :filters="filters"
             :category-options="categoryOptions"
             :team-options="teamOptions"
+            :garment-options="garmentOptions"
+            :sort-options="SORT_OPTIONS"
             :visible-count="visibleKits.length"
             :total-count="filteredKits.length"
             :search-placeholder="searchPlaceholder"

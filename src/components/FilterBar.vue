@@ -14,6 +14,14 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  garmentOptions: {
+    type: Array,
+    default: () => [],
+  },
+  sortOptions: {
+    type: Array,
+    default: () => [],
+  },
   visibleCount: {
     type: Number,
     default: 0,
@@ -101,10 +109,40 @@ function changeFilter(key, value) {
         </span>
         <span>{{ retroLabel }}</span>
       </button>
+
+      <label
+        class="ml-auto inline-flex min-w-0 items-center gap-1.5 rounded-full border border-subtle bg-base py-1 pl-3 pr-1.5 transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20"
+      >
+        <span class="shrink-0 text-[11px] font-semibold text-muted">
+          Ordenar
+        </span>
+        <span class="relative flex min-w-0">
+          <select
+            :value="filters.sort"
+            aria-label="Ordenar catálogo"
+            class="w-full appearance-none rounded-full bg-transparent py-1 pl-1 pr-6 text-xs font-semibold text-main focus:outline-none"
+            @change="changeFilter('sort', $event.target.value)"
+          >
+            <option
+              v-for="option in sortOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+          <component
+            :is="resolveIcon('ChevronDown')"
+            :size="13"
+            aria-hidden="true"
+            class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-muted"
+          />
+        </span>
+      </label>
     </div>
 
     <div
-      class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[15rem_minmax(0,1fr)_auto] lg:items-center"
+      class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-[14rem_13rem_minmax(0,1fr)_auto] lg:items-center"
     >
       <div class="relative">
         <label for="team-filter" class="sr-only">Filtrar por equipo</label>
@@ -131,6 +169,32 @@ function changeFilter(key, value) {
       </div>
 
       <div class="relative">
+        <label for="garment-filter" class="sr-only">
+          Filtrar por prenda
+        </label>
+        <select
+          id="garment-filter"
+          :value="filters.garment"
+          class="w-full appearance-none rounded-xl border border-subtle bg-base py-2.5 pl-3 pr-9 text-sm text-main transition-colors hover:border-accent focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30"
+          @change="changeFilter('garment', $event.target.value)"
+        >
+          <option
+            v-for="option in garmentOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
+        </select>
+        <component
+          :is="resolveIcon('ChevronDown')"
+          :size="16"
+          aria-hidden="true"
+          class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+        />
+      </div>
+
+      <div class="relative sm:col-span-2 lg:col-span-1">
         <label for="catalog-search" class="sr-only">
           Buscar camisetas
         </label>
@@ -165,7 +229,7 @@ function changeFilter(key, value) {
       </div>
 
       <div
-        class="flex items-center justify-between gap-3 pb-0.5 lg:justify-end lg:pb-0"
+        class="flex items-center justify-between gap-3 pb-0.5 sm:col-span-2 lg:col-span-1 lg:justify-end lg:pb-0"
       >
         <p
           class="text-xs text-muted sm:text-sm"
